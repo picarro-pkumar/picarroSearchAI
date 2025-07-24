@@ -612,17 +612,32 @@ function App() {
           <div className="messages">
             {messages.length === 0 ? (
               <div className="welcome-message">
-                <h2>Welcome to PicarroSearchAI</h2>
+                <h2>Welcome to Picarro SearchAI</h2>
+                <div className="welcome-subtitle">
+                  <p>Your intelligent assistant for Picarro's precision gas analyzers and environmental monitoring solutions</p>
+                </div>
                 <div className="fenceline-note">
-                  <p><strong>Note:</strong> Currently designed for Fenceline Cloud Solution</p>
+                  <p><strong>Note:</strong> Currently optimized for Fenceline Cloud Solution documentation</p>
                 </div>
                 <div className="example-queries">
-                  <p>Try asking:</p>
+                  <p>Try asking about:</p>
                   <ul>
-                    <li>"What is Fenceline Cloud Solution?"</li>
-                    <li>"Explain the Fenceline architecture diagram"</li>
-                    <li>"How does Fenceline monitoring work?"</li>
-                    <li>"What are the main components of Fenceline?"</li>
+                    <li>"What is Fenceline Cloud Solution and how does it work?"</li>
+                    <li>"Explain the Fenceline architecture and components"</li>
+                    <li>"How does Fenceline monitoring and alerting function?"</li>
+                    <li>"What are the installation requirements for Fenceline?"</li>
+                    <li>"How do I configure Fenceline for my site?"</li>
+                    <li>"What are the main features and benefits of Fenceline?"</li>
+                  </ul>
+                </div>
+                <div className="welcome-features">
+                  <p><strong>I can help you with:</strong></p>
+                  <ul>
+                    <li>📊 Technical specifications and documentation</li>
+                    <li>🔧 Installation and configuration guides</li>
+                    <li>⚙️ Troubleshooting and maintenance</li>
+                    <li>📈 Best practices and optimization</li>
+                    <li>🔍 Detailed API and system information</li>
                   </ul>
                 </div>
               </div>

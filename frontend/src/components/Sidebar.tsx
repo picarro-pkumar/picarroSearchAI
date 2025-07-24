@@ -162,9 +162,9 @@ const Sidebar: React.FC<SidebarProps> = ({
             </button>
             
             {/* Developer credit */}
-            <div className={`text-center text-xs ${isDarkMode ? 'text-blue-300' : 'text-blue-600'}`}>
-              <p>Developed and trained by</p>
-              <p className="font-medium">Unified Knowledge Explorers team</p>
+            <div className="text-center text-xs">
+              <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Developed and trained by</p>
+              <p className={`font-medium ${isDarkMode ? 'text-blue-300' : 'text-blue-800'}`}>Unified Knowledge Explorers team</p>
             </div>
           </div>
         </div>

@@ -166,10 +166,52 @@
   margin-bottom: 1rem;
 }
 
+.welcome-subtitle {
+  margin-bottom: 1.5rem;
+}
+
+.welcome-subtitle p {
+  font-size: 1.125rem;
+  opacity: 0.8;
+  line-height: 1.6;
+  color: #d1d5db;
+}
+
 .welcome-message p {
   font-size: 1.125rem;
   margin-bottom: 2rem;
   opacity: 0.8;
+}
+
+.welcome-features {
+  text-align: left;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  margin-top: 2rem;
+}
+
+.welcome-features p {
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #f3f4f6;
+}
+
+.welcome-features ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.welcome-features li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: #d1d5db;
+  font-size: 0.95rem;
+}
+
+.welcome-features li:last-child {
+  border-bottom: none;
 }
 
 .fenceline-note {
@@ -831,6 +873,28 @@ button:active {
 }
 
 .app.light .example-queries li:hover {
+  background-color: #f1f5f9;
+}
+
+.app.light .welcome-subtitle p {
+  color: #6b7280;
+}
+
+.app.light .welcome-features {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.app.light .welcome-features p {
+  color: #111827;
+}
+
+.app.light .welcome-features li {
+  color: #4b5563;
+  border-bottom-color: #e5e7eb;
+}
+
+.app.light .welcome-features li:hover {
   background-color: #f1f5f9;
 }
 
