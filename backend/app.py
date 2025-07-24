@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Optional
 import logging
 import uvicorn
 from datetime import datetime
+import os
 
 from ai_responder import AIResponder, Source
 from doc_processor import DocumentProcessor
@@ -102,7 +103,8 @@ def initialize_services():
         document_processor = DocumentProcessor()
         
         logger.info("Initializing AIResponder...")
-        ai_responder = AIResponder(document_processor)
+        ollama_url = os.getenv("OLLAMA_URL")
+        ai_responder = AIResponder(document_processor, ollama_url=ollama_url)
         
         logger.info("All services initialized successfully")
         return True
@@ -618,6 +620,45 @@ async def cleanup_old_chats():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to cleanup chats: {str(e)}"
+        )
+
+@app.post("/api/force-resync")
+async def force_resync():
+    """
+    Force a complete resync of Confluence data.
+    This will clear all existing data and perform a fresh sync.
+    
+    Returns:
+        Resync status and results
+    """
+    try:
+        logger.info("🔄 Starting force resync via API")
+        
+        # Import here to avoid circular imports
+        from force_resync import main as force_resync_main
+        
+        # Run the force resync
+        success = force_resync_main()
+        
+        if success:
+            return {
+                "success": True,
+                "message": "Force resync completed successfully",
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Force resync failed"
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Force resync failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Force resync failed: {str(e)}"
         )
 
 # Error handlers

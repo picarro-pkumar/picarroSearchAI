@@ -410,6 +410,64 @@ class DocumentProcessor:
             logger.error(f"Failed to clear documents: {e}")
             raise
 
+    def document_exists(self, document_id: str) -> bool:
+        """
+        Check if a document exists in the collection.
+        
+        Args:
+            document_id: ID of the document to check
+            
+        Returns:
+            True if document exists, False otherwise
+        """
+        try:
+            results = self.collection.get(
+                where={"document_id": document_id},
+                limit=1
+            )
+            return len(results['ids']) > 0
+            
+        except Exception as e:
+            logger.error(f"Failed to check if document exists: {e}")
+            return False
+
+    def upsert_document(
+        self,
+        content: str,
+        metadata: Optional[Dict[str, Any]] = None,
+        document_id: Optional[str] = None
+    ) -> str:
+        """
+        Update or insert a document. If the document exists, it will be deleted and re-added.
+        
+        Args:
+            content: Document content
+            metadata: Document metadata
+            document_id: Document ID (if None, will be auto-generated)
+            
+        Returns:
+            Document ID
+        """
+        try:
+            if not content.strip():
+                raise ValueError("Document content cannot be empty")
+            
+            # Generate document ID if not provided
+            if document_id is None:
+                document_id = str(uuid.uuid4())
+            
+            # Check if document exists and delete it
+            if self.document_exists(document_id):
+                logger.info(f"Document {document_id} exists, deleting old version")
+                self.delete_document(document_id)
+            
+            # Add the new document
+            return self.add_document(content, metadata, document_id)
+            
+        except Exception as e:
+            logger.error(f"Failed to upsert document: {e}")
+            raise
+
 
 def test_document_processor():
     """

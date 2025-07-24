@@ -46,6 +46,8 @@ class ConfluenceMigrator:
             'pages_processed': 0,
             'pages_successful': 0,
             'pages_failed': 0,
+            'pages_skipped': 0,
+            'pages_updated': 0,
             'total_chunks': 0,
             'errors': []
         }
@@ -141,6 +143,17 @@ class ConfluenceMigrator:
             page_id = page_data['id']
             title = page_data['title']
             
+            # Check if page needs syncing based on version
+            if not self.confluence_connector.should_sync_page(page_data):
+                logger.debug(f"Skipping page {page_id} - no changes detected")
+                return {
+                    'success': True,
+                    'page_id': page_id,
+                    'title': title,
+                    'skipped': True,
+                    'reason': 'No changes detected'
+                }
+            
             logger.info(f"Processing page: {title} (ID: {page_id})")
             
             # Get full page content
@@ -178,8 +191,8 @@ class ConfluenceMigrator:
                 else:
                     cleaned_metadata[key] = str(value)
             
-            # Add to ChromaDB
-            doc_id = self.doc_processor.add_document(
+            # Use upsert to handle updates
+            doc_id = self.doc_processor.upsert_document(
                 content=clean_content,
                 metadata=cleaned_metadata,
                 document_id=f"confluence_{page_id}"
@@ -193,7 +206,8 @@ class ConfluenceMigrator:
                 'title': title,
                 'doc_id': doc_id,
                 'content_length': len(clean_content),
-                'metadata': metadata
+                'metadata': metadata,
+                'updated': True
             }
             
         except Exception as e:
@@ -239,6 +253,10 @@ class ConfluenceMigrator:
                 self.stats['pages_processed'] += 1
                 if result.get('success'):
                     self.stats['pages_successful'] += 1
+                    if result.get('updated'):
+                        self.stats['pages_updated'] += 1
+                    else:
+                        self.stats['pages_skipped'] += 1
                 else:
                     self.stats['pages_failed'] += 1
                     self.stats['errors'].append(result.get('error', 'Unknown error'))
@@ -258,6 +276,8 @@ class ConfluenceMigrator:
                 'pages_processed': self.stats['pages_processed'],
                 'pages_successful': self.stats['pages_successful'],
                 'pages_failed': self.stats['pages_failed'],
+                'pages_updated': self.stats['pages_updated'],
+                'pages_skipped': self.stats['pages_skipped'],
                 'total_chunks': self.stats['total_chunks'],
                 'errors': self.stats['errors'],
                 'results': results
@@ -311,6 +331,8 @@ class ConfluenceMigrator:
                 'pages_processed': migration_result.get('pages_processed', 0),
                 'pages_successful': migration_result.get('pages_successful', 0),
                 'pages_failed': migration_result.get('pages_failed', 0),
+                'pages_updated': self.stats.get('pages_updated', 0),
+                'pages_skipped': self.stats.get('pages_skipped', 0),
                 'total_chunks': migration_result.get('total_chunks', 0),
                 'duration_minutes': (self.stats['end_time'] - self.stats['start_time']).total_seconds() / 60 if self.stats['end_time'] else 0
             }
@@ -345,6 +367,8 @@ def main():
             print(f"📊 Pages Processed: {summary.get('pages_processed')}")
             print(f"📊 Pages Successful: {summary.get('pages_successful')}")
             print(f"📊 Pages Failed: {summary.get('pages_failed')}")
+            print(f"📊 Pages Updated: {summary.get('pages_updated')}")
+            print(f"📊 Pages Skipped: {summary.get('pages_skipped')}")
             print(f"📊 Total Chunks: {summary.get('total_chunks')}")
             print(f"⏱️  Duration: {summary.get('duration_minutes', 0):.1f} minutes")
         else:

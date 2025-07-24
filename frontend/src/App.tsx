@@ -591,6 +591,9 @@ function App() {
                 {llmStatus === 'connected' && 'LLM Connected'}
                 {llmStatus === 'disconnected' && 'LLM Disconnected'}
               </span>
+              {llmStatus === 'disconnected' && (
+                <span className="status-alert">⚠️</span>
+              )}
             </div>
           </div>
           <button className="theme-toggle" onClick={toggleTheme}>
@@ -679,7 +682,9 @@ function App() {
           <div className="input-container">
             {llmStatus === 'disconnected' && (
               <div className="llm-offline-warning">
-                <span>🤖 LLM is offline - Messages cannot be sent</span>
+                <span>🔴</span>
+                <span>LLM is currently offline - Please ensure Ollama is running to send messages</span>
+                <span>🔴</span>
               </div>
             )}
             <MessageInput

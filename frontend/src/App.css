@@ -65,6 +65,20 @@
   font-weight: 500;
 }
 
+.status-alert {
+  font-size: 0.75rem;
+  animation: blink 1.5s infinite;
+}
+
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0.3;
+  }
+}
+
 /* Header border alignment */
 .app.dark .header {
   border-bottom-color: #4b5563;
@@ -829,10 +843,44 @@ button:active {
   border-top-color: #e2e8f0;
 }
 
+/* LLM Offline Warning - Base styles */
+.llm-offline-warning {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  text-align: center;
+  animation: pulse-warning 2s infinite;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.dark .llm-offline-warning {
+  background: linear-gradient(135deg, #7f1d1d, #991b1b);
+  color: #fecaca;
+  border: 1px solid #dc2626;
+}
+
 .app.light .llm-offline-warning {
-  background-color: #fef2f2;
+  background: linear-gradient(135deg, #fef2f2, #fee2e2);
   color: #991b1b;
   border: 1px solid #fecaca;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
+}
+
+@keyframes pulse-warning {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.02);
+  }
 }
 
 /* Improve sidebar light mode */

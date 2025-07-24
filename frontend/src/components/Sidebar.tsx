@@ -161,7 +161,11 @@ const Sidebar: React.FC<SidebarProps> = ({
               <span>{showClearConfirm ? 'Click again to confirm' : 'Clear Chat History'}</span>
             </button>
             
-
+            {/* Developer credit */}
+            <div className={`text-center text-xs ${isDarkMode ? 'text-blue-300' : 'text-blue-600'}`}>
+              <p>Developed and trained by</p>
+              <p className="font-medium">Unified Knowledge Explorers team</p>
+            </div>
           </div>
         </div>
       </div>
