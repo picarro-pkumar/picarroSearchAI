@@ -1,204 +1,285 @@
 # Picarro SearchAI
 
-A complete AI-powered search and document retrieval system for Picarro, featuring a FastAPI backend with semantic search capabilities and a React frontend with ChatGPT-like interface.
+A powerful AI-powered search and chat interface for Picarro's documentation, built with React, FastAPI, and Ollama.
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-1. **Python 3.8+** with pip
-2. **Node.js 16+** with npm
-3. **Ollama** running locally with `llama3:latest` model
+- **Docker & Docker Compose** - For containerized deployment
+- **Ollama** - Local LLM server (Meta-Llama-3-8B-Instruct recommended)
+- **Confluence Access** - For documentation synchronization
 
-### Installation
+### 1. Clone the Repository
 
-1. **Clone the repository** (if not already done)
-2. **Install backend dependencies:**
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   ```
-
-3. **Install frontend dependencies:**
-   ```bash
-   cd frontend
-   npm install
-   ```
-
-### Running the Application
-
-#### Option 1: Use the startup script (Recommended)
 ```bash
-./start_servers.sh
+git clone <repository-url>
+cd picarro-SearchAI
 ```
 
-#### Option 2: Manual startup
+### 2. Set Up Environment Variables
 
-**Terminal 1 - Backend:**
 ```bash
-cd backend
-python3 app.py
+# Copy the example environment file
+cp backend/env.example backend/.env
+
+# Edit the environment file with your Confluence credentials
+nano backend/.env
 ```
 
-**Terminal 2 - Frontend:**
-```bash
-cd frontend
-npm start
+**Required Environment Variables:**
+```env
+CONFLUENCE_URL=https://your-company.atlassian.net
+CONFLUENCE_USERNAME=your-email@company.com
+CONFLUENCE_API_TOKEN=your-api-token
+CONFLUENCE_SPACE_KEY=YOUR_SPACE_KEY
 ```
 
-### Access the Application
+### 3. Install and Start Ollama
 
-- **Frontend UI:** http://localhost:3000
+```bash
+# Install Ollama (if not already installed)
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Pull the recommended model
+ollama pull llama3.2:8b-instruct-q4_0
+
+# Start Ollama server
+ollama serve
+```
+
+### 4. Start the Application
+
+```bash
+# Start both backend and frontend services
+docker-compose up -d
+
+# Check service status
+docker-compose ps
+```
+
+### 5. Access the Application
+
+- **Frontend:** http://localhost:3000
 - **Backend API:** http://localhost:8000
 - **API Documentation:** http://localhost:8000/docs
 
-## 🏗️ Architecture
+## 📚 Initial Setup
 
-### Backend (`backend/`)
-- **FastAPI** web framework
-- **ChromaDB** vector database for semantic search
-- **Sentence Transformers** for document embedding
-- **Ollama** integration for AI responses
-- **Document Processor** for chunking and indexing
+### First-Time Data Synchronization
 
-### Frontend (`frontend/`)
-- **React 18** with TypeScript
-- **Tailwind CSS** for styling
-- **ChatGPT-like interface** with dark theme
-- **Persistent chat history** using localStorage
-- **Responsive design** for all devices
+After starting the services, you need to sync your Confluence documentation:
 
-## 📁 Project Structure
-
-```
-picarro-SearchAI/
-├── backend/
-│   ├── app.py              # FastAPI main application
-│   ├── ai_responder.py     # AI response generation
-│   ├── doc_processor.py    # Document processing and search
-│   ├── config.py           # Configuration settings
-│   ├── requirements.txt    # Python dependencies
-│   └── chroma_db/          # Vector database storage
-├── frontend/
-│   ├── src/
-│   │   ├── components/     # React components
-│   │   ├── types/          # TypeScript type definitions
-│   │   └── App.tsx         # Main application component
-│   ├── package.json        # Node.js dependencies
-│   └── tailwind.config.js  # Tailwind configuration
-├── data/                   # Sample documents
-├── start_servers.sh        # Startup script
-└── README.md              # This file
-```
-
-## 🔧 Configuration
-
-### Backend Configuration
-- **Ollama URL:** `http://localhost:11434/api/generate`
-- **Model:** `llama3:latest`
-- **Chunk Size:** 1000 characters
-- **Similarity Threshold:** 0.7
-- **Max Results:** 5
-
-### Frontend Configuration
-- **API Endpoint:** `http://localhost:8000/search`
-- **Theme:** Dark mode by default
-- **Chat History:** Persisted in localStorage
-
-## 🎯 Features
-
-### Backend Features
-- ✅ Semantic document search
-- ✅ AI-powered question answering
-- ✅ Document ingestion and processing
-- ✅ Health monitoring and statistics
-- ✅ CORS support for frontend
-- ✅ Comprehensive error handling
-- ✅ Domain-specific responses (Picarro only)
-
-### Frontend Features
-- ✅ ChatGPT-like chat interface
-- ✅ Dark theme with modern UI
-- ✅ Persistent chat history (localStorage)
-- ✅ Chat history management (clear all, delete individual)
-- ✅ Typing animations
-- ✅ Copy response functionality
-- ✅ Regenerate response option
-- ✅ Responsive design
-- ✅ Loading states and error handling
-- ✅ Save/load notifications
-
-## 🔍 API Endpoints
-
-- `GET /` - Root endpoint with basic info
-- `GET /health` - Health check with system status
-- `POST /search` - Main search endpoint
-- `POST /add-document` - Add new documents
-- `GET /stats` - Knowledge base statistics
-
-## 🛠️ Development
-
-### Adding New Documents
 ```bash
-curl -X POST "http://localhost:8000/add-document" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "text": "Your document content here",
-    "metadata": {"source": "manual", "category": "technical"}
-  }'
+# Navigate to backend directory
+cd backend
+
+# Run the initial migration
+python confluence_migrate.py
 ```
 
-### Testing the Search
+This will:
+- Download all pages from your Confluence space
+- Process and chunk the content
+- Store embeddings in ChromaDB
+- Create the knowledge base for AI responses
+
+## 🛠️ Development Setup
+
+### Running Locally (Without Docker)
+
+#### Backend Setup
 ```bash
-curl -X POST "http://localhost:8000/search" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "What is Picarro's technology?",
-    "max_results": 5
-  }'
+cd backend
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the backend server
+python app.py
 ```
 
-## 🐛 Troubleshooting
+#### Frontend Setup
+```bash
+cd frontend
 
-### Common Issues
+# Install dependencies
+npm install
 
-1. **Port 3000 already in use:**
-   ```bash
-   lsof -ti:3000 | xargs kill -9
-   ```
+# Start development server
+npm start
+```
 
-2. **Port 8000 already in use:**
-   ```bash
-   lsof -ti:8000 | xargs kill -9
-   ```
+## 🔧 Common Issues & Debugging
 
-3. **Ollama not running:**
-   ```bash
-   ollama serve
-   ollama pull llama3:latest
-   ```
+### 1. Ollama Connection Issues
 
-4. **Python dependencies missing:**
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   ```
+**Problem:** "LLM is offline" or connection errors
 
-5. **Node modules missing:**
-   ```bash
-   cd frontend
-   npm install
-   ```
+**Solutions:**
+```bash
+# Check if Ollama is running
+curl http://localhost:11434/api/tags
 
-### Health Check
-Visit http://localhost:8000/health to verify all services are running properly.
+# Restart Ollama
+pkill ollama
+ollama serve
 
-## 📝 Notes
+# Verify model is available
+ollama list
 
-- The system is designed to answer questions specifically about Picarro technology and documents
-- Out-of-domain questions will be politely refused
-- Chat history is stored locally in the browser
-- The backend requires Ollama to be running with the llama3:latest model
+# Pull model if missing
+ollama pull llama3.2:8b-instruct-q4_0
+```
+
+### 2. Docker Services Not Starting
+
+**Problem:** Services fail to start or show unhealthy status
+
+**Solutions:**
+```bash
+# Check Docker status
+docker-compose ps
+
+# View logs for specific service
+docker-compose logs backend
+docker-compose logs frontend
+
+# Restart services
+docker-compose down
+docker-compose up -d
+
+# Rebuild if needed
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+### 3. Confluence Authentication Errors
+
+**Problem:** "Authentication failed" or "Access denied"
+
+**Solutions:**
+- Verify your Confluence API token is correct
+- Check if your account has access to the specified space
+- Ensure the space key is correct
+- Try regenerating your API token in Atlassian
+
+### 4. Data Synchronization Issues
+
+**Problem:** AI returns old or incorrect information
+
+**Solutions:**
+```bash
+# Force complete resync
+cd backend
+python force_resync.py
+
+# Or manually clear and resync
+rm -rf chroma_db
+rm confluence_sync_state.json
+python confluence_migrate.py
+```
+
+### 5. Frontend Not Loading
+
+**Problem:** Frontend shows errors or doesn't load
+
+**Solutions:**
+```bash
+# Check if backend is accessible
+curl http://localhost:8000/health
+
+# Verify nginx configuration
+docker-compose exec frontend nginx -t
+
+# Check frontend logs
+docker-compose logs frontend
+```
+
+### 6. Memory Issues
+
+**Problem:** System becomes slow or crashes
+
+**Solutions:**
+- Ensure you have at least 8GB RAM available
+- Close other memory-intensive applications
+- Consider using a smaller model: `ollama pull llama3.2:3b-instruct-q4_0`
+
+### 7. Port Conflicts
+
+**Problem:** "Address already in use" errors
+
+**Solutions:**
+```bash
+# Check what's using the ports
+lsof -i :3000
+lsof -i :8000
+lsof -i :11434
+
+# Kill conflicting processes
+kill -9 <PID>
+
+# Or change ports in docker-compose.yml
+```
+
+## 📊 Monitoring & Maintenance
+
+### Check System Health
+
+```bash
+# Service status
+docker-compose ps
+
+# Resource usage
+docker stats
+
+# Logs
+docker-compose logs -f
+
+# Database size
+du -sh backend/chroma_db
+```
+
+### Regular Maintenance
+
+```bash
+# Update dependencies
+docker-compose build --no-cache
+
+# Clean up Docker
+docker system prune -f
+
+# Backup ChromaDB (optional)
+cp -r backend/chroma_db backup_chroma_db_$(date +%Y%m%d)
+```
+
+## 🔒 Security Considerations
+
+- Keep your Confluence API token secure
+- Don't commit `.env` files to version control
+- Regularly update dependencies
+- Use HTTPS in production
+- Consider network isolation for sensitive data
+
+## 📝 API Endpoints
+
+### Core Endpoints
+- `POST /api/search` - Search and chat with AI
+- `GET /api/health` - Health check
+- `POST /api/force-resync` - Force data resync
+- `GET /api/chat-history` - Get chat history
+
+### Example Usage
+```bash
+# Test search endpoint
+curl -X POST http://localhost:8000/api/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "How do I calibrate the analyzer?"}'
+```
 
 ## 🤝 Contributing
 
@@ -208,6 +289,18 @@ Visit http://localhost:8000/health to verify all services are running properly.
 4. Test thoroughly
 5. Submit a pull request
 
+## 📞 Support
+
+For issues and questions:
+- Check the troubleshooting section above
+- Review the logs for error messages
+- Ensure all prerequisites are met
+- Verify your Confluence access and credentials
+
 ## 📄 License
 
-This project is proprietary to Picarro and contains confidential information. 
+This project is proprietary to Picarro Inc.
+
+---
+
+**Developed and trained by Unified Knowledge Explorers team** 
