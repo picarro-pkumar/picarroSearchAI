@@ -33,7 +33,7 @@ app = FastAPI(
 # Add CORS middleware for React frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # React frontend
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # React frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -41,7 +41,7 @@ app.add_middleware(
 
 # Pydantic models
 class SearchQuery(BaseModel):
-    query: str = Field(..., description="Search query", min_length=1, max_length=1000)
+    query: str = Field(..., description="Search query", min_length=1, max_length=5000)
     max_results: Optional[int] = Field(5, description="Maximum number of results to return", ge=1, le=20)
     filter_metadata: Optional[Dict[str, Any]] = Field(None, description="Optional metadata filters")
 
@@ -81,6 +81,12 @@ class HealthResponse(BaseModel):
 class ErrorResponse(BaseModel):
     error: str
     message: str
+    timestamp: datetime
+
+class LlmStatusResponse(BaseModel):
+    connected: bool
+    model: Optional[str] = None
+    error: Optional[str] = None
     timestamp: datetime
 
 # Global instances
@@ -199,6 +205,41 @@ async def health_check():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Health check failed: {str(e)}"
+        )
+
+@app.get("/api/llm-status", response_model=LlmStatusResponse)
+async def get_llm_status():
+    """Get LLM (Ollama) connection status."""
+    try:
+        if not ai_responder:
+            return LlmStatusResponse(
+                connected=False,
+                error="AIResponder not initialized",
+                timestamp=datetime.now()
+            )
+        
+        # Check Ollama connection
+        is_connected = ai_responder._check_ollama_connection()
+        
+        if is_connected:
+            return LlmStatusResponse(
+                connected=True,
+                model=ai_responder.model_name,
+                timestamp=datetime.now()
+            )
+        else:
+            return LlmStatusResponse(
+                connected=False,
+                error="Ollama connection failed",
+                timestamp=datetime.now()
+            )
+            
+    except Exception as e:
+        logger.error(f"LLM status check failed: {e}")
+        return LlmStatusResponse(
+            connected=False,
+            error=str(e),
+            timestamp=datetime.now()
         )
 
 @app.post("/search", response_model=SearchResponse)
@@ -583,23 +624,31 @@ async def cleanup_old_chats():
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
     """Handle HTTP exceptions with structured error responses."""
-    return {
-        "error": "HTTP Error",
-        "message": exc.detail,
-        "status_code": exc.status_code,
-        "timestamp": datetime.now().isoformat()
-    }
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": "HTTP Error",
+            "message": exc.detail,
+            "status_code": exc.status_code,
+            "timestamp": datetime.now().isoformat()
+        }
+    )
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):
     """Handle general exceptions with structured error responses."""
     logger.error(f"Unhandled exception: {exc}")
-    return {
-        "error": "Internal Server Error",
-        "message": "An unexpected error occurred",
-        "status_code": 500,
-        "timestamp": datetime.now().isoformat()
-    }
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal Server Error",
+            "message": "An unexpected error occurred",
+            "status_code": 500,
+            "timestamp": datetime.now().isoformat()
+        }
+    )
 
 def start_server():
     """Start the FastAPI server with uvicorn."""

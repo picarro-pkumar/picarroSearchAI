@@ -46,7 +46,7 @@ class AIResponder:
         document_processor: DocumentProcessor,
         ollama_url: str = "http://localhost:11434/api/generate",
         model_name: str = "llama3:latest",
-        max_retrieved_docs: int = 5,
+        max_retrieved_docs: int = 10,  # Retrieve more initially, then filter
         max_tokens: int = 2048,
         temperature: float = 0.7,
         timeout: int = 30
@@ -108,27 +108,35 @@ class AIResponder:
         Returns:
             True if query is relevant to Picarro domain
         """
-        # Define Picarro-related keywords
-        picarro_keywords = [
-            'picarro', 'gas analyzer', 'environmental monitoring', 'precision', 'emissions',
-            'greenhouse gas', 'air quality', 'atmospheric', 'climate', 'carbon', 'methane',
-            'co2', 'n2o', 'analyzer', 'spectrometer', 'cavity ring-down', 'crd', 'monitoring',
-            'calibration', 'drift', 'stability', 'reliability', 'field deployment', 'remote',
-            'continuous', 'real-time', 'data validation', 'quality control', 'industrial',
-            'research', 'scientific', 'ecosystem', 'flux', 'sequestration', 'paleoclimatology',
-            'ocean-atmosphere', 'urban air', 'agricultural', 'forest', 'atmospheric chemistry'
+        # Define comprehensive FenceLine domain keywords (matching current knowledge base content)
+        domain_keywords = [
+            # FenceLine-specific terms (what's actually in your data)
+            'fenceline', 'fence line', 'architecture', 'system architecture', 'cloud solution',
+            'demo', 'template', 'troubleshooting', 'how-to', 'guide', 'documentation',
+            'system', 'design', 'solution', 'platform', 'service', 'api', 'database',
+            'frontend', 'backend', 'deployment', 'configuration', 'setup', 'installation',
+            
+            # Additional FenceLine terms from your content
+            'tenant', 'site', 'hierarchy', 'organization', 'structure', 'management',
+            'user', 'role', 'permission', 'access', 'security', 'authentication',
+            'dashboard', 'interface', 'ui', 'ux', 'workflow', 'process', 'integration',
+            'data', 'analytics', 'reporting', 'monitoring', 'alerts', 'notifications',
+            'cloud', 'aws', 'azure', 'gcp', 'infrastructure', 'scalability', 'performance',
+            
+            # General Picarro terms for compatibility
+            'picarro', 'monitoring', 'analysis', 'reporting'
         ]
         
-        # Check if query contains Picarro-related keywords
+        # Check if query contains domain-related keywords
         query_lower = query.lower()
-        has_picarro_keywords = any(keyword in query_lower for keyword in picarro_keywords)
+        has_domain_keywords = any(keyword in query_lower for keyword in domain_keywords)
         
-        # Check if sources have sufficient relevance (similarity score > 0.7)
-        relevant_sources = [s for s in sources if s.similarity_score > 0.7]
+        # Check if sources have sufficient relevance (similarity score > 0.5 - more flexible)
+        relevant_sources = [s for s in sources if s.similarity_score > 0.5]
         has_relevant_sources = len(relevant_sources) > 0
         
-        # Query is relevant if it has Picarro keywords OR has highly relevant sources
-        return has_picarro_keywords or has_relevant_sources
+        # Query is relevant if it has domain keywords OR has highly relevant sources
+        return has_domain_keywords or has_relevant_sources
 
     def _generate_prompt(self, query: str, sources: List[Source]) -> str:
         """
@@ -148,25 +156,58 @@ class AIResponder:
         
         context = "\n".join(context_parts)
         
-        # Create the prompt with strict domain restrictions
-        prompt = f"""You are an AI assistant specifically for Picarro, a company that specializes in precision gas analyzers and environmental monitoring solutions. 
+        # Create the prompt with ENHANCED specific analysis capabilities
+        prompt = f"""You are an AI assistant for Picarro's FenceLine Cloud Solution and related documentation. 
 
-IMPORTANT: You can ONLY answer questions related to Picarro's products, technology, services, and environmental monitoring applications. You MUST refuse to answer any questions that are not related to Picarro or environmental monitoring.
+IMPORTANT: You can answer questions related to:
+- Picarro's products, technology, services, and environmental monitoring applications
+- FenceLine architecture, system design, and cloud solutions
+- Documentation, templates, troubleshooting guides, and how-to articles
+- Any content present in the provided context
 
-If the user asks about topics unrelated to Picarro (such as general knowledge, other companies, geography, history, etc.), politely decline and redirect them to Picarro-related topics.
+If the user asks about topics completely unrelated to Picarro or the provided context, politely decline and redirect them to relevant topics.
 
 Context Information:
 {context}
 
 User Question: {query}
 
-Instructions:
-1. If the question is NOT related to Picarro or environmental monitoring, respond with:
-   "I'm sorry, but I can only answer questions related to Picarro's precision gas analyzers and environmental monitoring solutions. Your question appears to be outside my area of expertise. Please ask me about Picarro's products, technology, or environmental monitoring applications."
+CRITICAL INSTRUCTIONS FOR RESPONSE QUALITY:
 
-2. If the question IS related to Picarro, provide a comprehensive answer based on the context information.
+1. **ANALYZE SPECIFIC CONTENT**: 
+   - DO NOT give generic responses. Analyze the ACTUAL content provided in the sources.
+   - Extract and describe SPECIFIC details from the source content.
+   - Quote or reference exact text from the sources when describing components.
+   - List actual component names, labels, and technical specifications mentioned.
 
-3. Always stay focused on Picarro's technology, products, and environmental monitoring capabilities.
+2. **FOR DIAGRAMS AND ARCHITECTURE**:
+   - If the context contains diagrams, architecture, or visual content:
+     * Describe the EXACT components, sections, and layers as they appear in the source
+     * Explain the specific relationships and connections as shown in the source
+     * Mention specific file names, URLs, or identifiers from the source
+     * Include technical details like IP addresses, port numbers, or configurations if mentioned
+     * Describe any labels, arrows, flow directions, or annotations exactly as they appear
+     * If the source mentions specific diagram elements (like "Tenant - Site Hierarchy", "Platform API Architecture"), describe them in detail
+     * Extract and explain any specific technical terms, component names, or architectural patterns mentioned
+   - AVOID generic statements like "appears to be" or "seems to show" - be specific about what's actually in the source
+   - If the source contains raw diagram data or metadata, interpret and explain the actual content rather than making assumptions
+
+3. **RESPONSE STRUCTURE**:
+   - Start with a direct answer to the user's question
+   - Provide specific details from the sources
+   - If describing architecture, break it down into clear sections
+   - Use bullet points or numbered lists for clarity
+   - Reference specific source information when possible
+   - For FenceLine architecture questions, focus on the actual diagram content and technical specifications mentioned
+
+4. **QUALITY REQUIREMENTS**:
+   - Be precise and technical when the source contains technical information
+   - Avoid vague or generic descriptions
+   - Focus on what's actually documented in the sources
+   - If the source contains specific technical details, include them in your response
+
+5. **If the question is NOT related to Picarro, FenceLine, or the provided context**, respond with:
+   "I'm sorry, but I can only answer questions related to Picarro's solutions and the documentation available. Your question appears to be outside my area of expertise. Please ask me about Picarro's products, FenceLine architecture, or related documentation."
 
 Answer:"""
         
@@ -262,16 +303,26 @@ Answer:"""
                 filter_metadata=filter_metadata
             )
             
-            # Convert search results to Source objects
+            # Convert search results to Source objects and filter by relevance
             sources = []
+            min_similarity_threshold = 0.3  # Only include sources with decent relevance
+            
             for result in search_results:
-                source = Source(
-                    content=result["content"],
-                    metadata=result["metadata"],
-                    similarity_score=result["similarity_score"],
-                    rank=result["rank"]
-                )
-                sources.append(source)
+                similarity_score = result["similarity_score"]
+                
+                # Only include sources that meet the minimum similarity threshold
+                if similarity_score >= min_similarity_threshold:
+                    source = Source(
+                        content=result["content"],
+                        metadata=result["metadata"],
+                        similarity_score=similarity_score,
+                        rank=result["rank"]
+                    )
+                    sources.append(source)
+                else:
+                    logger.info(f"Filtering out low-relevance source (score: {similarity_score:.3f}): {result['metadata'].get('title', 'Unknown')}")
+            
+            logger.info(f"Retrieved {len(sources)} relevant documents (filtered from {len(search_results)} total)")
             
             logger.info(f"Retrieved {len(sources)} relevant documents")
             
@@ -358,144 +409,5 @@ Answer:"""
             raise
 
 
-def test_ai_responder():
-    """
-    Test function to demonstrate the AIResponder functionality.
-    """
-    print("=== Testing AIResponder ===")
-    
-    try:
-        # Initialize document processor and AI responder
-        doc_processor = DocumentProcessor()
-        ai_responder = AIResponder(doc_processor)
-        
-        # Sample documents about Picarro analyzers
-        sample_documents = [
-            {
-                "content": """
-                Picarro's G2301 gas analyzer is a high-precision instrument designed for measuring carbon dioxide (CO2), methane (CH4), and water vapor (H2O) concentrations. 
-                It uses cavity ring-down spectroscopy (CRDS) technology to achieve parts-per-billion (ppb) detection limits. 
-                The G2301 is widely used in atmospheric research, greenhouse gas monitoring, and industrial emissions tracking.
-                """,
-                "metadata": {
-                    "product": "G2301",
-                    "category": "gas_analyzer",
-                    "technology": "CRDS",
-                    "applications": "atmospheric_research,greenhouse_gas_monitoring"
-                }
-            },
-            {
-                "content": """
-                The Picarro G2401 analyzer measures carbon monoxide (CO), carbon dioxide (CO2), methane (CH4), and water vapor (H2O) simultaneously. 
-                This analyzer is particularly useful for air quality monitoring and urban pollution studies. 
-                It features real-time data logging and can operate continuously for extended periods with minimal maintenance.
-                """,
-                "metadata": {
-                    "product": "G2401",
-                    "category": "gas_analyzer",
-                    "technology": "CRDS",
-                    "applications": "air_quality_monitoring,urban_pollution_studies"
-                }
-            },
-            {
-                "content": """
-                Picarro's isotopic analyzers, such as the G2131-i, provide high-precision measurements of stable isotopes in carbon dioxide and water vapor. 
-                These instruments are essential for understanding carbon cycling, ecosystem studies, and climate research. 
-                The isotopic data helps scientists trace the sources and sinks of greenhouse gases.
-                """,
-                "metadata": {
-                    "product": "G2131-i",
-                    "category": "isotopic_analyzer",
-                    "technology": "CRDS",
-                    "applications": "carbon_cycling,ecosystem_studies,climate_research"
-                }
-            },
-            {
-                "content": """
-                Cavity Ring-Down Spectroscopy (CRDS) is the core technology behind Picarro's analyzers. 
-                This technique measures the time it takes for light to decay in an optical cavity, providing extremely precise concentration measurements. 
-                CRDS technology offers superior stability, accuracy, and sensitivity compared to traditional spectroscopic methods.
-                """,
-                "metadata": {
-                    "category": "technology",
-                    "technology": "CRDS",
-                    "description": "core_technology"
-                }
-            },
-            {
-                "content": """
-                Picarro analyzers are deployed worldwide in various applications including environmental monitoring networks, 
-                industrial process control, agricultural research, and scientific laboratories. 
-                The instruments are known for their reliability in harsh environmental conditions and their ability to provide 
-                continuous, unattended operation for months at a time.
-                """,
-                "metadata": {
-                    "category": "applications",
-                    "description": "deployment_info"
-                }
-            }
-        ]
-        
-        # Add documents to knowledge base
-        print("Adding sample documents to knowledge base...")
-        doc_ids = []
-        for doc in sample_documents:
-            doc_id = ai_responder.add_document(doc["content"], doc["metadata"])
-            doc_ids.append(doc_id)
-            print(f"Added document: {doc_id}")
-        
-        # Test queries
-        test_queries = [
-            "What is the G2301 analyzer used for?",
-            "How does CRDS technology work?",
-            "What are the applications of Picarro analyzers?",
-            "Tell me about isotopic measurements",
-            "What makes Picarro analyzers reliable?"
-        ]
-        
-        print(f"\nTesting {len(test_queries)} different queries...")
-        
-        for i, query in enumerate(test_queries, 1):
-            print(f"\n--- Query {i}: {query} ---")
-            
-            try:
-                response = ai_responder.respond(query)
-                
-                print(f"Answer: {response.answer}")
-                print(f"Response time: {response.response_time:.2f}s")
-                print(f"Confidence: {response.confidence_score:.3f}")
-                print(f"Sources used: {len(response.sources)}")
-                
-                for j, source in enumerate(response.sources, 1):
-                    print(f"  Source {j} (Score: {source.similarity_score:.3f}):")
-                    print(f"    Product: {source.metadata.get('product', 'N/A')}")
-                    print(f"    Category: {source.metadata.get('category', 'N/A')}")
-                    print(f"    Content: {source.content[:100]}...")
-                
-            except Exception as e:
-                print(f"Error processing query: {e}")
-        
-        # Get knowledge base statistics
-        print(f"\n--- Knowledge Base Statistics ---")
-        stats = ai_responder.get_knowledge_base_stats()
-        for key, value in stats.items():
-            print(f"  {key}: {value}")
-        
-        # Clean up
-        print(f"\nCleaning up - removing test documents...")
-        for doc_id in doc_ids:
-            try:
-                doc_processor.delete_document(doc_id)
-                print(f"Deleted document: {doc_id}")
-            except Exception as e:
-                print(f"Error deleting document {doc_id}: {e}")
-        
-        print("Test completed successfully!")
-        
-    except Exception as e:
-        print(f"Test failed with error: {e}")
-        logger.error(f"Test failed: {e}")
-
-
-if __name__ == "__main__":
-    test_ai_responder() 
+# Production-ready AI Responder for Picarro SearchAI
+# Enhanced with specific analysis capabilities for better diagram and architecture descriptions 

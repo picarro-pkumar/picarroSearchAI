@@ -78,7 +78,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       `}>
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className={`flex items-center justify-between p-4 border-b ${isDarkMode ? 'border-chatgpt-gray-600' : 'border-gray-200'}`}>
+          <div className={`p-4 border-b ${isDarkMode ? 'border-chatgpt-gray-600' : 'border-gray-200'}`}>
             <button
               onClick={onNewChat}
               className={`flex items-center space-x-2 w-full p-3 rounded-lg border transition-colors ${isDarkMode ? 'border-chatgpt-gray-600 text-chatgpt-gray-200 hover:bg-chatgpt-gray-700' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
@@ -87,16 +87,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               <span>New chat</span>
-            </button>
-            
-            {/* Mobile close button */}
-            <button
-              onClick={onToggle}
-              className={`lg:hidden ml-2 p-2 rounded-lg transition-colors ${isDarkMode ? 'text-chatgpt-gray-400 hover:text-chatgpt-gray-200 hover:bg-chatgpt-gray-700' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}`}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
             </button>
           </div>
 
@@ -153,32 +143,25 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {/* Footer */}
-          <div className={`p-4 border-t space-y-2 ${isDarkMode ? 'border-chatgpt-gray-600' : 'border-gray-200'}`}>
-            {/* Clear all chats button */}
-            {chats.length > 0 && (
-              <button
-                onClick={handleClearAllChats}
-                className={`w-full p-2 text-sm rounded-lg transition-colors ${
-                  showClearConfirm 
-                    ? 'bg-red-600 text-white hover:bg-red-700' 
-                    : (isDarkMode ? 'text-red-400 hover:text-red-300 hover:bg-chatgpt-gray-700' : 'text-red-500 hover:text-red-600 hover:bg-gray-100')
-                }`}
-              >
-                {showClearConfirm ? 'Click again to confirm' : 'Clear all chats'}
-              </button>
-            )}
+          <div className={`p-4 border-t space-y-3 ${isDarkMode ? 'border-chatgpt-gray-600' : 'border-gray-200'}`}>
+            {/* Clear chat history button */}
+            <button
+              onClick={handleClearAllChats}
+              className={`w-full flex items-center justify-center space-x-2 p-3 text-sm font-medium rounded-lg transition-all duration-200 ${
+                showClearConfirm 
+                  ? 'bg-red-600 text-white hover:bg-red-700 shadow-lg' 
+                  : (isDarkMode 
+                    ? 'bg-chatgpt-gray-700 text-chatgpt-gray-200 hover:bg-chatgpt-gray-600 border border-chatgpt-gray-600 hover:border-red-500' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 hover:border-red-400')
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              <span>{showClearConfirm ? 'Click again to confirm' : 'Clear Chat History'}</span>
+            </button>
             
-            <div className={`flex items-center space-x-3 p-3 rounded-lg ${isDarkMode ? 'bg-chatgpt-gray-800' : 'bg-gray-100'}`}>
-              <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium ${isDarkMode ? 'text-chatgpt-gray-200' : 'text-gray-800'}`}>Picarro SearchAI</p>
-                <p className={`text-xs ${isDarkMode ? 'text-chatgpt-gray-400' : 'text-gray-600'}`}>Cloud Fenceline Project</p>
-              </div>
-            </div>
+
           </div>
         </div>
       </div>

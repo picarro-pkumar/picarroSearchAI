@@ -358,6 +358,57 @@ class DocumentProcessor:
         except Exception as e:
             logger.error(f"Failed to get collection stats: {e}")
             raise
+    
+    def get_all_documents(self) -> List[Dict[str, Any]]:
+        """
+        Get all documents from the collection.
+        
+        Returns:
+            List of document dictionaries with content and metadata
+        """
+        try:
+            # Get all documents from collection
+            results = self.collection.get(limit=10000)  # Large limit to get all
+            
+            documents = []
+            for i in range(len(results['documents'])):
+                doc = {
+                    'content': results['documents'][i],
+                    'metadata': results['metadatas'][i] if results['metadatas'] else {},
+                    'id': results['ids'][i] if results['ids'] else None
+                }
+                documents.append(doc)
+            
+            logger.info(f"Retrieved {len(documents)} documents from collection")
+            return documents
+            
+        except Exception as e:
+            logger.error(f"Failed to get all documents: {e}")
+            raise
+    
+    def clear_documents(self) -> bool:
+        """
+        Clear all documents from the collection.
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Delete the collection and recreate it
+            self.client.delete_collection("documents")
+            
+            # Recreate the collection
+            self.collection = self.client.create_collection(
+                name="documents",
+                metadata={"hnsw:space": "cosine"}
+            )
+            
+            logger.info("All documents cleared from collection")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to clear documents: {e}")
+            raise
 
 
 def test_document_processor():

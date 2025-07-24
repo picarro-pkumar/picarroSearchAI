@@ -12,7 +12,7 @@
 
 .app.light {
   background-color: #ffffff;
-  color: #374151;
+  color: #1f2937;
 }
 
 /* Main Content Area */
@@ -28,19 +28,58 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem;
+  padding: 1rem 1rem 1.25rem 1rem; /* Increase bottom padding to move border down */
   border-bottom: 1px solid;
   background-color: inherit;
+  position: relative; /* Ensure proper border positioning */
 }
 
-.dark .header {
-  border-color: #565869;
-  background-color: #343541;
+/* LLM Status - align with header border */
+.llm-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem 0.5rem 0 0; /* Remove bottom border radius */
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 0; /* Remove any margin */
+  border-bottom: none; /* Remove any bottom border from status */
 }
 
-.light .header {
-  border-color: #e5e7eb;
-  background-color: #ffffff;
+.dark .llm-status {
+  background-color: #4b5563;
+  color: #d1d5db;
+}
+
+.light .llm-status {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.status-indicator {
+  font-size: 0.75rem;
+}
+
+.status-text {
+  font-weight: 500;
+}
+
+/* Header border alignment */
+.app.dark .header {
+  border-bottom-color: #4b5563;
+}
+
+.app.light .header {
+  border-bottom-color: #e2e8f0;
+}
+
+/* Alternative approach - if you want the status to touch the border */
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  height: 100%; /* Ensure full height alignment */
 }
 
 .header h1 {
@@ -718,4 +757,120 @@ button:active {
   .border-chatgpt-gray-600 {
     border-color: #4b5563;
   }
+}
+
+/* Light mode specific improvements */
+.app.light {
+  background-color: #ffffff;
+  color: #1f2937;
+}
+
+.app.light .header {
+  background-color: #f8fafc;
+  border-bottom-color: #e2e8f0;
+}
+
+.app.light .llm-status {
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.app.light .welcome-message {
+  color: #1f2937;
+}
+
+.app.light .welcome-message h2 {
+  color: #111827;
+  font-weight: 700;
+}
+
+.app.light .fenceline-note {
+  background: linear-gradient(135deg, #f0f9ff, #ecfdf5);
+  border: 1px solid #bae6fd;
+  color: #0c4a6e;
+}
+
+.app.light .fenceline-note p {
+  color: #0c4a6e;
+  font-weight: 500;
+}
+
+.app.light .fenceline-note strong {
+  color: #059669;
+}
+
+.app.light .example-queries {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #374151;
+}
+
+.app.light .example-queries p {
+  color: #111827;
+  font-weight: 600;
+}
+
+.app.light .example-queries li {
+  color: #4b5563;
+  border-bottom-color: #e5e7eb;
+}
+
+.app.light .example-queries li:hover {
+  background-color: #f1f5f9;
+}
+
+.app.light .chat-container {
+  background-color: #ffffff;
+}
+
+.app.light .input-container {
+  background-color: #f8fafc;
+  border-top-color: #e2e8f0;
+}
+
+.app.light .llm-offline-warning {
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+/* Improve sidebar light mode */
+.app.light .sidebar {
+  background-color: #f8fafc;
+  border-right-color: #e2e8f0;
+}
+
+.app.light .sidebar button {
+  color: #374151;
+}
+
+.app.light .sidebar button:hover {
+  background-color: #f1f5f9;
+}
+
+/* Improve message styling for light mode */
+.app.light .message-container {
+  border-bottom-color: #f3f4f6;
+}
+
+.app.light .message-container:hover {
+  background-color: #f9fafb;
+}
+
+.app.light .message-content {
+  color: #1f2937;
+}
+
+.app.light .source-container {
+  background-color: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.app.light .source-header {
+  color: #374151;
+}
+
+.app.light .source-content {
+  color: #4b5563;
 }

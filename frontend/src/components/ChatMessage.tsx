@@ -34,13 +34,13 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onRegenerate, isDark
           onClick={() => setShowSources(!showSources)}
           className={`text-sm mb-2 transition-colors ${isDarkMode ? 'text-chatgpt-gray-400 hover:text-chatgpt-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
         >
-          {showSources ? 'Hide' : 'Show'} Sources ({message.sources.length})
+          {showSources ? 'Hide' : 'Show'} References ({message.sources.length})
         </button>
         
         {showSources && (
           <div className="space-y-3">
             {message.sources.map((source, index) => (
-              <div key={index} className={`rounded-lg p-3 ${isDarkMode ? 'bg-chatgpt-gray-700' : 'bg-gray-100'}`}>
+              <div key={index} className={`rounded-lg p-3 overflow-hidden ${isDarkMode ? 'bg-chatgpt-gray-700' : 'bg-gray-100'}`}>
                 <div className="flex justify-between items-start mb-2">
                   <span className={`text-xs ${isDarkMode ? 'text-chatgpt-gray-400' : 'text-gray-500'}`}>
                     Source {index + 1} (Score: {source.similarity_score.toFixed(3)})
@@ -51,9 +51,47 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onRegenerate, isDark
                     </span>
                   )}
                 </div>
-                <p className={`text-sm leading-relaxed ${isDarkMode ? 'text-chatgpt-gray-200' : 'text-gray-800'}`}>
-                  {source.content}
-                </p>
+                
+                {/* Show Confluence link if available */}
+                {source.metadata.page_url ? (
+                  <div className="mb-3">
+                    <a 
+                      href={source.metadata.page_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`inline-flex items-center space-x-2 text-sm font-medium ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'} transition-colors`}
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
+                        <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
+                      </svg>
+                      <span>View in Confluence</span>
+                    </a>
+                    {source.metadata.title && (
+                      <p className={`text-xs mt-1 ${isDarkMode ? 'text-chatgpt-gray-400' : 'text-gray-600'}`}>
+                        {source.metadata.title}
+                      </p>
+                    )}
+                    {/* Additional metadata */}
+                    <div className={`mt-2 text-xs space-y-1 ${isDarkMode ? 'text-chatgpt-gray-400' : 'text-gray-500'}`}>
+                      {source.metadata.space_name && (
+                        <div>Space: {source.metadata.space_name}</div>
+                      )}
+                      {source.metadata.author && (
+                        <div>Author: {source.metadata.author}</div>
+                      )}
+                      {source.metadata.last_modified && (
+                        <div>Updated: {new Date(source.metadata.last_modified).toLocaleDateString()}</div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  /* Fallback to content preview if no URL */
+                  <p className={`text-sm leading-relaxed source-content ${isDarkMode ? 'text-chatgpt-gray-200' : 'text-gray-800'}`}>
+                    {source.content.length > 200 ? `${source.content.substring(0, 200)}...` : source.content}
+                  </p>
+                )}
+                
                 {source.metadata.category && (
                   <div className={`mt-2 text-xs ${isDarkMode ? 'text-chatgpt-gray-400' : 'text-gray-500'}`}>
                     Category: {source.metadata.category}

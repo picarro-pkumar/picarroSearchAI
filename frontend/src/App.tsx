@@ -95,6 +95,24 @@ const apiService = {
     if (!response.ok) {
       throw new Error(`Failed to update chat title: ${response.statusText}`);
     }
+  },
+
+  async checkLlmStatus(): Promise<{ connected: boolean; model?: string; error?: string }> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/llm-status`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`LLM status check failed: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      return { connected: data.connected, model: data.model, error: data.error };
+    } catch (error) {
+      return { connected: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
   }
 };
 
@@ -105,15 +123,15 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    const savedTheme = localStorage.getItem('picarro-theme');
-    return savedTheme ? savedTheme === 'dark' : true; // Default to dark mode
-  });
+  const [isDarkMode, setIsDarkMode] = useState(false); // Changed from true to false
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState('');
   const [processingStage, setProcessingStage] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [llmStatus, setLlmStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
+  const [llmLastChecked, setLlmLastChecked] = useState<Date>(new Date());
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [hoveredChatId, setHoveredChatId] = useState<string | null>(null);
 
   // Save theme preference to localStorage whenever it changes
   useEffect(() => {
@@ -142,6 +160,36 @@ function App() {
       }
     }
   }, []);
+
+  // Check LLM status on component mount and periodically
+  useEffect(() => {
+    const checkLlmStatus = async () => {
+      try {
+        console.log('🔍 Checking LLM status...');
+        const status = await apiService.checkLlmStatus();
+        const newStatus = status.connected ? 'connected' : 'disconnected';
+        setLlmStatus(newStatus);
+        setLlmLastChecked(new Date());
+        console.log(`🤖 LLM status: ${status.connected ? 'Connected' : 'Disconnected'}${status.model ? ` (${status.model})` : ''}${status.error ? ` - Error: ${status.error}` : ''}`);
+        
+        // If status changed, log it for debugging
+        if (newStatus !== llmStatus) {
+          console.log(`🔄 LLM status changed from ${llmStatus} to ${newStatus}`);
+        }
+      } catch (error) {
+        console.error('❌ Error checking LLM status:', error);
+        setLlmStatus('disconnected');
+      }
+    };
+
+    // Check immediately
+    checkLlmStatus();
+
+    // Check every 30 seconds
+    const interval = setInterval(checkLlmStatus, 30000);
+
+    return () => clearInterval(interval);
+  }, [llmStatus]);
 
   // Load chat history from backend on component mount
   useEffect(() => {
@@ -315,6 +363,27 @@ function App() {
   const sendMessage = async (content: string) => {
     if (!content.trim()) return;
 
+    // Check if LLM is disconnected before attempting to send
+    if (llmStatus !== 'connected') {
+      setError('🤖 LLM is currently offline. Please ensure Ollama is running and try again.');
+      return;
+    }
+
+    // Double-check LLM status before sending (in case it changed)
+    try {
+      const status = await apiService.checkLlmStatus();
+      if (!status.connected) {
+        setLlmStatus('disconnected');
+        setError('🤖 LLM is currently offline. Please ensure Ollama is running and try again.');
+        return;
+      }
+    } catch (error) {
+      console.error('❌ Error checking LLM status before sending:', error);
+      setLlmStatus('disconnected');
+      setError('🤖 LLM is currently offline. Please ensure Ollama is running and try again.');
+      return;
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
       content: content.trim(),
@@ -365,7 +434,19 @@ function App() {
       console.log('✅ Message sent and response received');
     } catch (error) {
       console.error('❌ Error sending message:', error);
-      setError('Failed to send message. Please try again.');
+      
+      // Check if LLM is disconnected and show appropriate message
+      if (llmStatus !== 'connected') {
+        setError('🤖 LLM is currently offline. Please ensure Ollama is running and try again.');
+      } else if (error instanceof Error && error.message.includes('Ollama')) {
+        setError('🤖 LLM connection failed. Please check if Ollama is running on localhost:11434');
+      } else if (error instanceof Error && (error.message.includes('500') || error.message.includes('Internal Server Error'))) {
+        setError('🤖 LLM service error. Please check if Ollama is running and try again.');
+      } else if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        setError('🤖 Cannot connect to backend server. Please ensure the backend is running.');
+      } else {
+        setError('Failed to send message. Please try again.');
+      }
     } finally {
       if (processingInterval) {
         clearInterval(processingInterval);
@@ -435,7 +516,19 @@ function App() {
       console.log('🔄 Response regenerated');
     } catch (error) {
       console.error('❌ Error regenerating response:', error);
-      setError('Failed to regenerate response. Please try again.');
+      
+      // Check if LLM is disconnected and show appropriate message
+      if (llmStatus !== 'connected') {
+        setError('🤖 LLM is currently offline. Please ensure Ollama is running and try again.');
+      } else if (error instanceof Error && error.message.includes('Ollama')) {
+        setError('🤖 LLM connection failed. Please check if Ollama is running on localhost:11434');
+      } else if (error instanceof Error && (error.message.includes('500') || error.message.includes('Internal Server Error'))) {
+        setError('🤖 LLM service error. Please check if Ollama is running and try again.');
+      } else if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        setError('🤖 Cannot connect to backend server. Please ensure the backend is running.');
+      } else {
+        setError('Failed to regenerate response. Please try again.');
+      }
     } finally {
       if (processingInterval) {
         clearInterval(processingInterval);
@@ -486,14 +579,20 @@ function App() {
 
       <div className="main-content">
         <header className="header">
-          <button className="sidebar-toggle" onClick={toggleSidebar}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="12" x2="21" y2="12"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
-            </svg>
-          </button>
-          <h1>Picarro SearchAI</h1>
+          <div className="header-content">
+            <div className="llm-status" title={`LLM Status: ${llmStatus === 'checking' ? 'Checking connection...' : llmStatus === 'connected' ? 'Connected to Ollama' : 'Disconnected from Ollama'} (Last checked: ${llmLastChecked.toLocaleTimeString()})`}>
+              <span className={`status-indicator ${llmStatus}`}>
+                {llmStatus === 'checking' && '🔄'}
+                {llmStatus === 'connected' && '🟢'}
+                {llmStatus === 'disconnected' && '🔴'}
+              </span>
+              <span className="status-text">
+                {llmStatus === 'checking' && 'Checking LLM...'}
+                {llmStatus === 'connected' && 'LLM Connected'}
+                {llmStatus === 'disconnected' && 'LLM Disconnected'}
+              </span>
+            </div>
+          </div>
           <button className="theme-toggle" onClick={toggleTheme}>
             {isDarkMode ? '☀️' : '🌙'}
           </button>
@@ -510,16 +609,17 @@ function App() {
           <div className="messages">
             {messages.length === 0 ? (
               <div className="welcome-message">
-                <h2>Welcome to Picarro SearchAI</h2>
+                <h2>Welcome to PicarroSearchAI</h2>
                 <div className="fenceline-note">
-                  <p><strong>Note:</strong> Picarro SearchAI is currently designed for Fenceline Cloud Solution</p>
+                  <p><strong>Note:</strong> Currently designed for Fenceline Cloud Solution</p>
                 </div>
                 <div className="example-queries">
                   <p>Try asking:</p>
                   <ul>
-                    <li>"What are Picarro's main products?"</li>
-                    <li>"How does cavity ring-down spectroscopy work?"</li>
-                    <li>"Tell me about Picarro's environmental monitoring solutions"</li>
+                    <li>"What is Fenceline Cloud Solution?"</li>
+                    <li>"Explain the Fenceline architecture diagram"</li>
+                    <li>"How does Fenceline monitoring work?"</li>
+                    <li>"What are the main components of Fenceline?"</li>
                   </ul>
                 </div>
               </div>
@@ -577,12 +677,18 @@ function App() {
           </div>
 
           <div className="input-container">
+            {llmStatus === 'disconnected' && (
+              <div className="llm-offline-warning">
+                <span>🤖 LLM is offline - Messages cannot be sent</span>
+              </div>
+            )}
             <MessageInput
               onSendMessage={sendMessage}
               isLoading={isLoading}
               isDarkMode={isDarkMode}
               onRegenerate={regenerateResponse}
               canRegenerate={messages.length > 0 && messages[messages.length - 1]?.role === 'assistant'}
+              disabled={llmStatus === 'disconnected'}
             />
           </div>
         </main>
