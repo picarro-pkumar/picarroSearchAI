@@ -1,0 +1,15 @@
+{
+  "short_name": "Picarro SearchAI",
+  "name": "Picarro SearchAI - Cloud Fenceline Project",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#3B82F6",
+  "background_color": "#343541"
+}
