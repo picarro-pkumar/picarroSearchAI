@@ -1,0 +1,2 @@
+# This file ensures the chat_history directory is tracked by git
+# Chat history JSON files will be stored here organized by date 
