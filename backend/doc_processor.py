@@ -10,7 +10,7 @@ from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
 import numpy as np
 
-# Configure logging
+# Configure logging3
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
