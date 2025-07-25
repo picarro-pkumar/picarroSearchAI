@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 import time
 import os
+import re
 
 from doc_processor import DocumentProcessor
 
@@ -14,6 +15,186 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+class HallucinationDetector:
+    """
+    Detects potential hallucination patterns in AI responses.
+    """
+    
+    def __init__(self):
+        # Warning patterns that indicate potential hallucination
+        self.warning_patterns = {
+            # JSON examples not from sources - more specific patterns
+            'json_examples': [
+                r'```json\s*\n\s*\{[^{}]*"[^"]*":\s*"[^"]*"[^{}]*\}\s*\n```',  # JSON code blocks with specific structure
+                r'"id":\s*"123"',  # Specific placeholder IDs
+                r'"id":\s*"456"',  # Specific placeholder IDs
+                r'"name":\s*"example"',  # Example names
+                r'"description":\s*"This is an example"',  # Example descriptions
+            ],
+            
+            # REST API endpoints without source evidence - more specific
+            'rest_endpoints': [
+                r'GET\s+/api/v1/\w+',  # Versioned API endpoints
+                r'POST\s+/api/v1/\w+',  # Versioned API endpoints
+                r'PUT\s+/api/v1/\w+',  # Versioned API endpoints
+                r'DELETE\s+/api/v1/\w+',  # Versioned API endpoints
+                r'/\w+/\{id\}/',  # Path parameters with braces
+                r'/\w+/\d{3,}',  # Numeric path parameters (3+ digits)
+            ],
+            
+            # Placeholder values - more specific
+            'placeholder_values': [
+                r'\b123\b',  # Common placeholder number
+                r'\b456\b',  # Common placeholder number
+                r'\b789\b',  # Common placeholder number
+                r'example\.com',  # Example domain
+                r'api\.example\.com',  # Example API domain
+                r'your-domain\.com',  # Generic domain placeholder
+                r'your-email@company\.com',  # Email placeholder
+                r'your-api-token',  # Token placeholder
+                r'<your-',  # Generic placeholders
+                r'\[your-',  # Bracket placeholders
+            ],
+            
+            # Standardized error codes without source documentation - more specific
+            'error_codes': [
+                r'"error_code":\s*"400"',  # JSON error codes
+                r'"error_code":\s*"401"',
+                r'"error_code":\s*"404"',
+                r'"error_code":\s*"500"',
+                r'"status":\s*400',  # Status codes in JSON
+                r'"status":\s*401',
+                r'"status":\s*404',
+                r'"status":\s*500',
+            ],
+            
+            # Generic API patterns - more specific
+            'generic_api_patterns': [
+                r'Request\s+Parameters:\s*\n',  # Generic API documentation
+                r'Response\s+Format:\s*\n',  # Generic response format
+                r'Example\s+Response:\s*\n',  # Example responses
+                r'Authentication\s+Requirements:\s*\n',  # Generic auth
+                r'Headers:\s*\n',  # Generic headers
+                r'Content-Type:\s*application/json\s*\n',  # Standard headers
+                r'Authorization:\s*Bearer\s*\n',  # Standard auth
+            ]
+        }
+        
+        # Compile regex patterns for efficiency
+        self.compiled_patterns = {}
+        for category, patterns in self.warning_patterns.items():
+            self.compiled_patterns[category] = [re.compile(pattern, re.IGNORECASE) for pattern in patterns]
+    
+    def detect_hallucination(self, response_text: str, sources: List[Any]) -> Tuple[bool, List[str], Dict[str, List[str]]]:
+        """
+        Detect potential hallucination patterns in the response.
+        
+        Args:
+            response_text: The AI-generated response text
+            sources: List of source documents used for generation
+            
+        Returns:
+            Tuple of (is_hallucination, warning_messages, detected_patterns)
+        """
+        detected_patterns = {}
+        warning_messages = []
+        is_hallucination = False
+        
+        # Check each category of patterns
+        for category, patterns in self.compiled_patterns.items():
+            category_matches = []
+            for pattern in patterns:
+                matches = pattern.findall(response_text)
+                if matches:
+                    category_matches.extend(matches)
+            
+            if category_matches:
+                detected_patterns[category] = category_matches
+                logger.debug(f"Hallucination detection: Found {category} patterns: {category_matches}")
+                
+                # Check if these patterns are actually supported by sources
+                if not self._patterns_supported_by_sources(category_matches, sources):
+                    is_hallucination = True
+                    warning_messages.append(f"Potential hallucination detected: {category} patterns found without source support")
+                    logger.warning(f"HALLUCINATION: {category} patterns not supported by sources: {category_matches}")
+        
+        # Additional checks for specific hallucination indicators
+        if self._has_unsupported_technical_details(response_text, sources):
+            is_hallucination = True
+            warning_messages.append("Technical details detected without source documentation")
+            logger.warning("HALLUCINATION: Technical details not supported by sources")
+        
+        # Debug logging
+        if detected_patterns:
+            logger.info(f"Hallucination detection results: {detected_patterns}")
+            logger.info(f"Is hallucination: {is_hallucination}")
+        
+        return is_hallucination, warning_messages, detected_patterns
+    
+    def _patterns_supported_by_sources(self, patterns: List[str], sources: List[Any]) -> bool:
+        """
+        Check if detected patterns are actually supported by source documents.
+        
+        Args:
+            patterns: List of detected patterns
+            sources: List of source documents
+            
+        Returns:
+            True if patterns are supported by sources, False otherwise
+        """
+        if not sources:
+            return False
+        
+        # Extract all source content
+        source_content = " ".join([getattr(source, 'content', str(source)) for source in sources])
+        source_content_lower = source_content.lower()
+        
+        # Check if any of the patterns appear in source content
+        for pattern in patterns:
+            pattern_lower = pattern.lower()
+            if pattern_lower in source_content_lower:
+                return True
+        
+        return False
+    
+    def _has_unsupported_technical_details(self, response_text: str, sources: List[Any]) -> bool:
+        """
+        Check for technical details that aren't supported by sources.
+        
+        Args:
+            response_text: The AI-generated response text
+            sources: List of source documents
+            
+        Returns:
+            True if unsupported technical details are found
+        """
+        # Technical keywords that should be supported by sources
+        technical_keywords = [
+            'api', 'endpoint', 'json', 'request', 'response', 'schema',
+            'authentication', 'headers', 'parameters', 'validation',
+            'error', 'status', 'code', 'method', 'url'
+        ]
+        
+        if not sources:
+            # Only flag if multiple technical keywords are present
+            found_keywords = [kw for kw in technical_keywords if kw in response_text.lower()]
+            return len(found_keywords) >= 3  # Require at least 3 technical keywords
+        
+        # Extract source content
+        source_content = " ".join([getattr(source, 'content', str(source)) for source in sources])
+        source_content_lower = source_content.lower()
+        
+        # Check if technical keywords in response are supported by sources
+        response_lower = response_text.lower()
+        unsupported_keywords = []
+        for keyword in technical_keywords:
+            if keyword in response_lower and keyword not in source_content_lower:
+                unsupported_keywords.append(keyword)
+        
+        # Only flag if multiple unsupported technical keywords are found
+        return len(unsupported_keywords) >= 2  # Require at least 2 unsupported keywords
 
 
 @dataclass
@@ -75,6 +256,9 @@ class AIResponder:
         self.temperature = temperature
         self.timeout = timeout
         self.min_sources_required = min_sources_required
+        
+        # Initialize hallucination detector
+        self.hallucination_detector = HallucinationDetector()
         
         logger.info(f"AIResponder initialized with model: {model_name}")
         logger.info(f"Ollama URL: {self.ollama_url}")
@@ -310,13 +494,13 @@ class AIResponder:
         
         # Anti-hallucination base instructions
         anti_hallucination_instructions = """
-CRITICAL ANTI-HALLUCINATION RULES:
-1. **ONLY USE PROVIDED SOURCES**: Base your answer EXCLUSIVELY on the information in the provided sources
-2. **NO ASSUMPTIONS**: Do not make assumptions or inferences beyond what's explicitly stated in the sources
-3. **SOURCE VERIFICATION**: If you cannot verify a fact from the provided sources, do not include it
-4. **UNCERTAINTY ACKNOWLEDGMENT**: If the sources don't contain enough information, say "I don't have enough information from the available sources"
-5. **QUOTE WHEN POSSIBLE**: Use direct quotes from sources when making specific claims
-6. **AVOID GENERIC RESPONSES**: Do not provide generic or template responses - be specific to the source content
+You are a Picarro technical documentation system. You MUST ONLY provide information that exists in the provided context documents.
+If the context doesn't contain specific API endpoints, response formats, or technical details, you MUST say:
+    'This information is not available in the current documentation'
+rather than generating examples.
+NEVER create fake API endpoints or example responses.
+NEVER extrapolate beyond what is explicitly stated in the source material.
+If you are unsure, say you do not have the information.
 """
         
         # Technical expert instructions
@@ -565,6 +749,56 @@ Answer:"""
         logger.info(f"Query preprocessing: '{query}' -> '{processed_query}'")
         return processed_query
     
+    def get_adaptive_threshold(self, scores: List[float], query: str) -> float:
+        """
+        Calculate adaptive threshold based on similarity scores and query.
+        
+        Args:
+            scores: List of similarity scores from search results
+            query: User query
+            
+        Returns:
+            Adaptive threshold value
+        """
+        if not scores:
+            return 0.15
+        max_score = max(scores)
+        if max_score < 0.3:
+            return 0.1
+        else:
+            return max(0.15, max_score * 0.5)
+    
+    def get_sources_with_cascade(self, search_results: List[dict], query: str) -> List[Source]:
+        """
+        Get sources using cascade threshold system for maximum inclusivity.
+        
+        Args:
+            search_results: Raw search results from document processor
+            query: User query
+            
+        Returns:
+            List of filtered sources
+        """
+        thresholds = [0.4, 0.3, 0.2, 0.15, 0.1]
+        for threshold in thresholds:
+            sources = []
+            for result in search_results:
+                if result["similarity_score"] >= threshold:
+                    source = Source(
+                        content=result["content"],
+                        metadata=result["metadata"],
+                        similarity_score=result["similarity_score"],
+                        rank=result["rank"]
+                    )
+                    sources.append(source)
+            if len(sources) >= 1:
+                logger.info(f"Using threshold {threshold} - found {len(sources)} sources")
+                return sources
+        
+        # Fallback: return top 3 results if no threshold works
+        logger.info("No sources found with cascade thresholds, using top 3 results")
+        return [Source(content=r["content"], metadata=r["metadata"], similarity_score=r["similarity_score"], rank=r["rank"]) for r in search_results[:3]]
+
     def respond(self, query: str, filter_metadata: Optional[Dict[str, Any]] = None) -> AIResponse:
         """
         Generate an AI response using RAG pattern.
@@ -609,64 +843,10 @@ Answer:"""
                 filter_metadata=filter_metadata
             )
             
-            # Convert search results to Source objects and filter by relevance
-            sources = []
+            # ADAPTIVE CASCADE SYSTEM - Use cascade thresholds for maximum inclusivity
+            sources = self.get_sources_with_cascade(search_results, query)
             
-            # DYNAMIC THRESHOLD SYSTEM - Adapts based on search results
-            if search_results:
-                # Calculate dynamic threshold based on result distribution
-                scores = [result["similarity_score"] for result in search_results]
-                max_score = max(scores)
-                avg_score = sum(scores) / len(scores)
-                
-                # Use adaptive threshold: 70% of max score, but not below 0.25
-                dynamic_threshold = max(0.25, max_score * 0.7)
-                
-                # If max score is very low (< 0.4), be more lenient
-                if max_score < 0.4:
-                    dynamic_threshold = max(0.2, avg_score * 0.8)
-                
-                logger.info(f"Dynamic threshold: {dynamic_threshold:.3f} (max: {max_score:.3f}, avg: {avg_score:.3f})")
-            else:
-                dynamic_threshold = 0.3  # Fallback threshold
-            
-            for result in search_results:
-                similarity_score = result["similarity_score"]
-                content = result["content"]
-                metadata = result["metadata"]
-                
-                # Use dynamic threshold for initial filtering
-                if similarity_score >= dynamic_threshold:
-                    # Additional content relevance check - require key terms to be present
-                    query_terms = [term.lower() for term in query.split() if len(term) > 3]
-                    content_lower = content.lower()
-                    
-                    # Count how many query terms are present in the content
-                    matching_terms = sum(1 for term in query_terms if term in content_lower)
-                    
-                    # Adaptive term matching: be more lenient for high-quality matches
-                    if similarity_score > 0.5:
-                        required_terms = 1
-                    elif similarity_score > 0.35:
-                        required_terms = 1  # More lenient for medium-high scores
-                    else:
-                        required_terms = 2
-                    
-                    if matching_terms >= required_terms:
-                        source = Source(
-                            content=content,
-                            metadata=metadata,
-                            similarity_score=similarity_score,
-                            rank=result["rank"]
-                        )
-                        sources.append(source)
-                        logger.info(f"Included relevant source (score: {similarity_score:.3f}, terms: {matching_terms}/{required_terms}): {metadata.get('title', 'Unknown')}")
-                    else:
-                        logger.info(f"Filtering out content with insufficient terms (score: {similarity_score:.3f}, terms: {matching_terms}/{required_terms}): {metadata.get('title', 'Unknown')}")
-                else:
-                    logger.info(f"Filtering out low-relevance source (score: {similarity_score:.3f} < {dynamic_threshold:.3f}): {metadata.get('title', 'Unknown')}")
-            
-            logger.info(f"Retrieved {len(sources)} relevant documents (filtered from {len(search_results)} total)")
+            logger.info(f"Retrieved {len(sources)} relevant documents using cascade system")
             
             # Anti-hallucination: Check if we have enough sources
             if len(sources) < self.min_sources_required:
@@ -718,7 +898,7 @@ Answer:"""
                 logger.info(f"Average similarity: {avg_similarity:.3f}, Confidence: {confidence_score:.3f}")
                 
                 # Anti-hallucination: Reject low confidence responses
-                if confidence_score < 0.3:  # Reduced from 0.7 for more flexible confidence
+                if confidence_score < 0.05:  # Very permissive threshold for maximum inclusivity
                     logger.warning(f"Low confidence response ({confidence_score:.3f}) - rejecting to prevent hallucination")
                     return AIResponse(
                         answer=f"I'm not confident enough in the available information to provide a reliable answer. The sources have low relevance to your question. Please try rephrasing your question or ask about a different aspect of Picarro's technology.",
@@ -742,6 +922,50 @@ Answer:"""
             
             logger.info(f"Response generated successfully in {total_response_time:.2f}s")
             logger.info(f"Confidence score: {confidence_score:.3f}")
+            
+            # HALLUCINATION DETECTION - DISABLED for maximum inclusivity
+            # is_hallucination, warning_messages, detected_patterns = self.hallucination_detector.detect_hallucination(answer, sources)
+            
+            # TEMPORARY: Bypass hallucination detection for debugging
+            # bypass_hallucination_detection = os.getenv("BYPASS_HALLUCINATION_DETECTION", "false").lower() == "true"
+            
+            # if is_hallucination and not bypass_hallucination_detection:
+            #     # Log all potential hallucinations for review
+            #     logger.warning(f"HALLUCINATION DETECTED for query: '{query}'")
+            #     logger.warning(f"Warning messages: {warning_messages}")
+            #     logger.warning(f"Detected patterns: {detected_patterns}")
+            #     logger.warning(f"Original response: {answer[:200]}...")  # Log first 200 chars
+            #     
+            #     # Replace response with safe message
+            #     response.answer = "I don't have enough specific technical documentation to provide detailed API information. Please refer to the official API documentation or provide more specific documentation sources."
+            #     response.confidence_score = 0.0
+            #     
+            #     logger.info("Response replaced with safe message due to hallucination detection")
+            # elif is_hallucination and bypass_hallucination_detection:
+            #     # Log but don't replace response for debugging
+            #     logger.warning(f"HALLUCINATION DETECTED (BYPASSED) for query: '{query}'")
+            #     logger.warning(f"Warning messages: {warning_messages}")
+            #     logger.warning(f"Detected patterns: {detected_patterns}")
+            #     logger.info("Response kept for debugging purposes")
+            
+            # After filtering sources and before generating the prompt:
+            if not sources:
+                response.answer = "I don't have documentation about specific API endpoints for this topic."
+                response.confidence_score = 0.0
+            # If sources exist but none contain technical details (API, JSON, etc.)
+            has_technical = any(
+                any(keyword in s.content.lower() for keyword in ["api", "endpoint", "json", "request", "response", "schema"])
+                for s in sources
+            )
+            if not has_technical:
+                response.answer = "The available documentation doesn't include detailed API specifications."
+                response.confidence_score = 0.0
+            # Before returning the final answer, enforce confidence threshold for technical info:
+            if "api" in query.lower() and response.confidence_score is not None and response.confidence_score < 0.4:
+                response.answer = (
+                    "The available documentation does not provide high-confidence technical API details for this topic. "
+                    "Please consult the official API documentation or contact the development team."
+                )
             
             return response
             
