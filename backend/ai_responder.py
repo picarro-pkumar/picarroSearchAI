@@ -46,11 +46,11 @@ class AIResponder:
         self,
         document_processor: DocumentProcessor,
         ollama_url: str = None,
-        model_name: str = "llama3:latest",
+        model_name: str = "llama3.2:3b",
         max_retrieved_docs: int = 10,  # Reduced from 20 for higher quality
         max_tokens: int = 8192,  # Increased for longer, more detailed responses
         temperature: float = 0.3,  # Slightly increased for better explanations
-        timeout: int = 60,  # Increased timeout for longer responses
+        timeout: int = 120,  # Increased timeout for longer responses
         min_sources_required: int = 1  # Keep at 1 for small datasets
     ):
         """
@@ -319,96 +319,89 @@ CRITICAL ANTI-HALLUCINATION RULES:
 6. **AVOID GENERIC RESPONSES**: Do not provide generic or template responses - be specific to the source content
 """
         
-        # Enhanced ChatGPT-like instructions
-        comprehensive_instructions = """
-RESPONSE QUALITY REQUIREMENTS - CREATE CHATGPT-LIKE EXPLANATIONS:
+        # Technical expert instructions
+        technical_instructions = """
+RESPONSE QUALITY REQUIREMENTS - SENIOR TECHNICAL EXPERT:
 
-1. **COMPREHENSIVE EXPLANATIONS**: 
-   - Provide detailed, thorough explanations that anyone can understand
-   - Explain concepts as if teaching someone new to the topic
-   - Include context, background, and practical applications
-   - Use analogies and examples to clarify complex concepts
+1. **DIRECT AND PRECISE ANSWERS**: 
+   - Give direct, technical responses like a senior engineer
+   - Focus on specific implementation details and technical specifications
+   - Avoid generic explanations of basic concepts unless specifically asked
+   - Be concise and practical, not educational
 
-2. **EDUCATIONAL APPROACH**:
-   - Start with a clear overview of the topic
-   - Break down complex information into digestible sections
-   - Explain the "why" behind technical decisions
-   - Provide step-by-step guidance when applicable
-   - Include best practices and recommendations
+2. **TECHNICAL FOCUS**:
+   - Reference specific code examples, API endpoints, and data structures from documents
+   - Include exact field names, parameters, and configuration details
+   - Use bullet points and code snippets when relevant
+   - Focus on practical implementation details
 
-3. **STRUCTURED FORMAT**:
-   - Use clear headings and organized sections
-   - Include bullet points and numbered lists for clarity
-   - Progress from basic concepts to advanced details
-   - Provide practical examples and real-world applications
-   - End with a summary and next steps
+3. **STRUCTURED TECHNICAL FORMAT**:
+   - Use clear technical headings
+   - Include bullet points for lists of features/endpoints
+   - Provide code examples and configuration snippets
+   - Focus on specific technical details, not general explanations
 
-4. **FRIENDLY AND HELPFUL TONE**:
-   - Use conversational, approachable language
-   - Anticipate follow-up questions and address them proactively
-   - Provide context about why this information is important
-   - Offer additional resources or related topics when relevant
+4. **PRECISE TECHNICAL LANGUAGE**:
+   - Use technical terminology appropriate for experienced developers
+   - Reference exact API endpoints, data structures, and configurations
+   - Avoid explaining basic concepts unless specifically requested
+   - Focus on "how to" rather than "what is"
 
-5. **DETAILED TECHNICAL INFORMATION**:
-   - Include all relevant technical details from sources
-   - Explain parameters, configurations, and settings in detail
-   - Provide code examples and implementation guidance
-   - Include troubleshooting tips and common issues
-   - Explain error handling and best practices
+5. **IMPLEMENTATION-FOCUSED**:
+   - Provide specific technical details for implementation
+   - Include exact parameters, data types, and validation rules
+   - Reference specific error codes and their meanings
+   - Focus on practical technical solutions
 """
         
         if self._is_api_query(query):
-            prompt = f"""You are a comprehensive technical API documentation assistant for Picarro's FenceLine Cloud Solution.
+            prompt = f"""You are a senior Picarro technical expert specializing in API documentation.
 
 {anti_hallucination_instructions}
 
-{comprehensive_instructions}
+{technical_instructions}
 
 CONTEXT INFORMATION:
 {context}
 
 USER QUESTION: {query}
 
-CRITICAL INSTRUCTIONS FOR API DOCUMENTATION RESPONSES:
+CRITICAL INSTRUCTIONS FOR API RESPONSES:
 
-1. **COMPREHENSIVE API ANALYSIS**:
-   - Provide detailed explanations of API endpoints, methods, and functionality
-   - Include complete parameter descriptions with types, requirements, and examples
-   - Explain the purpose and use cases for each API endpoint
-   - Describe request/response formats in detail
-   - Include authentication requirements and security considerations
+1. **DIRECT API SPECIFICATIONS**:
+   - Provide exact endpoint URLs, HTTP methods, and parameters
+   - Include specific field names, data types, and validation rules
+   - Reference exact request/response formats from documentation
+   - Focus on implementation details, not general API concepts
 
-2. **EDUCATIONAL APPROACH**:
-   - Explain API concepts in simple terms for developers of all levels
-   - Provide context about when and why to use each endpoint
-   - Include practical examples and code snippets when available
-   - Explain error handling and common issues
-   - Describe integration patterns and best practices
+2. **TECHNICAL IMPLEMENTATION**:
+   - Include specific code examples and configuration snippets
+   - Reference exact error codes and their meanings
+   - Provide specific authentication requirements and headers
+   - Focus on practical integration details
 
-3. **STRUCTURED RESPONSE FORMAT**:
-   - Start with an overview of the API functionality
-   - Use clear sections: Overview, Endpoints, Parameters, Request/Response, Examples, Best Practices
-   - Include step-by-step implementation guides
-   - Provide troubleshooting tips and common pitfalls
-   - End with summary and next steps
+3. **PRECISE TECHNICAL FORMAT**:
+   - Use bullet points for endpoint lists and parameters
+   - Include code snippets for request/response examples
+   - Reference specific data structures and field mappings
+   - Focus on technical specifications, not educational explanations
 
-4. **DETAILED TECHNICAL INFORMATION**:
-   - Include exact field names, data types, and validation rules
-   - Explain business logic and data flow
-   - Describe error codes and their meanings
-   - Include performance considerations and limitations
-   - Provide integration examples and use cases
+4. **IMPLEMENTATION-FOCUSED**:
+   - Provide specific technical details for immediate implementation
+   - Include exact parameters, headers, and response formats
+   - Reference specific business logic and data flow
+   - Focus on "how to implement" rather than "what is an API"
 
 5. **If the API information is not in the sources**, say:
    'I don't have specific information about that API endpoint in the available documentation. Please check the latest API documentation or contact the development team.'
 
 Answer:"""
         else:
-            prompt = f"""You are a comprehensive AI assistant for Picarro's FenceLine Cloud Solution and related documentation.
+            prompt = f"""You are a senior Picarro technical expert. Give direct, precise answers based on the provided documentation.
 
 {anti_hallucination_instructions}
 
-{comprehensive_instructions}
+{technical_instructions}
 
 IMPORTANT: You can answer questions related to:
 - Picarro's products, technology, services, and environmental monitoring applications
@@ -423,40 +416,33 @@ Context Information:
 
 User Question: {query}
 
-CRITICAL INSTRUCTIONS FOR COMPREHENSIVE RESPONSES:
+CRITICAL INSTRUCTIONS FOR TECHNICAL RESPONSES:
 
-1. **DETAILED EXPLANATIONS**:
-   - Provide thorough, educational explanations that anyone can understand
-   - Break down complex concepts into simple, digestible parts
-   - Use analogies and examples to clarify technical concepts
-   - Explain the "why" behind technical decisions and implementations
+1. **DIRECT AND PRECISE ANSWERS**:
+   - Give direct, technical responses like a senior engineer
+   - Focus on specific implementation details and technical specifications
+   - Avoid generic explanations of basic concepts unless specifically asked
+   - Be concise and practical, not educational
 
-2. **COMPREHENSIVE CONTENT ANALYSIS**:
-   - Analyze ALL relevant content from the provided sources
-   - Extract and explain specific details, features, and capabilities
-   - Connect related concepts and explain their relationships
-   - Provide context about the broader system architecture
+2. **TECHNICAL FOCUS**:
+   - Reference specific code examples, API endpoints, and data structures from documents
+   - Include exact field names, parameters, and configuration details
+   - Use bullet points and code snippets when relevant
+   - Focus on practical implementation details
 
-3. **PRACTICAL GUIDANCE**:
-   - Include step-by-step instructions when applicable
-   - Provide best practices and recommendations
-   - Explain common use cases and scenarios
-   - Include troubleshooting tips and considerations
+3. **IMPLEMENTATION-FOCUSED**:
+   - Provide specific technical details for immediate implementation
+   - Include exact parameters, configurations, and validation rules
+   - Reference specific error codes and their meanings
+   - Focus on "how to implement" rather than "what is"
 
-4. **EDUCATIONAL STRUCTURE**:
-   - Start with a clear overview of the topic
-   - Use organized sections with headings and bullet points
-   - Progress from basic concepts to advanced details
-   - Include practical examples and real-world applications
-   - End with a summary and next steps
+4. **PRECISE TECHNICAL FORMAT**:
+   - Use bullet points for lists of features/endpoints
+   - Include code examples and configuration snippets
+   - Reference specific data structures and field mappings
+   - Focus on technical specifications, not general explanations
 
-5. **FRIENDLY AND HELPFUL TONE**:
-   - Use conversational, approachable language
-   - Anticipate follow-up questions and address them proactively
-   - Provide context about why this information is important
-   - Offer additional resources or related topics when relevant
-
-6. **If the question is NOT related to Picarro, FenceLine, or the provided context**, respond with:
+5. **If the question is NOT related to Picarro, FenceLine, or the provided context**, respond with:
    'I'm sorry, but I can only answer questions related to Picarro's solutions and the documentation available. Your question appears to be outside my area of expertise. Please ask me about Picarro's products, FenceLine architecture, or related documentation.'
 
 Answer:"""
@@ -625,22 +611,60 @@ Answer:"""
             
             # Convert search results to Source objects and filter by relevance
             sources = []
-            min_similarity_threshold = 0.2  # Reduced from 0.6 for more flexible filtering
+            
+            # DYNAMIC THRESHOLD SYSTEM - Adapts based on search results
+            if search_results:
+                # Calculate dynamic threshold based on result distribution
+                scores = [result["similarity_score"] for result in search_results]
+                max_score = max(scores)
+                avg_score = sum(scores) / len(scores)
+                
+                # Use adaptive threshold: 70% of max score, but not below 0.25
+                dynamic_threshold = max(0.25, max_score * 0.7)
+                
+                # If max score is very low (< 0.4), be more lenient
+                if max_score < 0.4:
+                    dynamic_threshold = max(0.2, avg_score * 0.8)
+                
+                logger.info(f"Dynamic threshold: {dynamic_threshold:.3f} (max: {max_score:.3f}, avg: {avg_score:.3f})")
+            else:
+                dynamic_threshold = 0.3  # Fallback threshold
             
             for result in search_results:
                 similarity_score = result["similarity_score"]
+                content = result["content"]
+                metadata = result["metadata"]
                 
-                # Only include sources that meet the minimum similarity threshold
-                if similarity_score >= min_similarity_threshold:
-                    source = Source(
-                        content=result["content"],
-                        metadata=result["metadata"],
-                        similarity_score=similarity_score,
-                        rank=result["rank"]
-                    )
-                    sources.append(source)
+                # Use dynamic threshold for initial filtering
+                if similarity_score >= dynamic_threshold:
+                    # Additional content relevance check - require key terms to be present
+                    query_terms = [term.lower() for term in query.split() if len(term) > 3]
+                    content_lower = content.lower()
+                    
+                    # Count how many query terms are present in the content
+                    matching_terms = sum(1 for term in query_terms if term in content_lower)
+                    
+                    # Adaptive term matching: be more lenient for high-quality matches
+                    if similarity_score > 0.5:
+                        required_terms = 1
+                    elif similarity_score > 0.35:
+                        required_terms = 1  # More lenient for medium-high scores
+                    else:
+                        required_terms = 2
+                    
+                    if matching_terms >= required_terms:
+                        source = Source(
+                            content=content,
+                            metadata=metadata,
+                            similarity_score=similarity_score,
+                            rank=result["rank"]
+                        )
+                        sources.append(source)
+                        logger.info(f"Included relevant source (score: {similarity_score:.3f}, terms: {matching_terms}/{required_terms}): {metadata.get('title', 'Unknown')}")
+                    else:
+                        logger.info(f"Filtering out content with insufficient terms (score: {similarity_score:.3f}, terms: {matching_terms}/{required_terms}): {metadata.get('title', 'Unknown')}")
                 else:
-                    logger.info(f"Filtering out low-relevance source (score: {similarity_score:.3f}): {result['metadata'].get('title', 'Unknown')}")
+                    logger.info(f"Filtering out low-relevance source (score: {similarity_score:.3f} < {dynamic_threshold:.3f}): {metadata.get('title', 'Unknown')}")
             
             logger.info(f"Retrieved {len(sources)} relevant documents (filtered from {len(search_results)} total)")
             

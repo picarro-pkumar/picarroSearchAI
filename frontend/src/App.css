@@ -183,36 +183,7 @@
   opacity: 0.8;
 }
 
-.welcome-features {
-  text-align: left;
-  background-color: rgba(255, 255, 255, 0.05);
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  margin-top: 2rem;
-}
 
-.welcome-features p {
-  font-weight: 600;
-  margin-bottom: 1rem;
-  color: #f3f4f6;
-}
-
-.welcome-features ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.welcome-features li {
-  padding: 0.5rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  color: #d1d5db;
-  font-size: 0.95rem;
-}
-
-.welcome-features li:last-child {
-  border-bottom: none;
-}
 
 .fenceline-note {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(16, 185, 129, 0.1));
@@ -233,33 +204,7 @@
   color: #10B981;
 }
 
-.example-queries {
-  text-align: left;
-  background-color: rgba(255, 255, 255, 0.05);
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  margin-top: 2rem;
-}
 
-.example-queries p {
-  font-weight: 600;
-  margin-bottom: 1rem;
-}
-
-.example-queries ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.example-queries li {
-  padding: 0.5rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.example-queries li:last-child {
-  border-bottom: none;
-}
 
 /* Error Message */
 .error-message {
@@ -856,47 +801,13 @@ button:active {
   color: #059669;
 }
 
-.app.light .example-queries {
-  background-color: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #374151;
-}
 
-.app.light .example-queries p {
-  color: #111827;
-  font-weight: 600;
-}
-
-.app.light .example-queries li {
-  color: #4b5563;
-  border-bottom-color: #e5e7eb;
-}
-
-.app.light .example-queries li:hover {
-  background-color: #f1f5f9;
-}
 
 .app.light .welcome-subtitle p {
   color: #6b7280;
 }
 
-.app.light .welcome-features {
-  background-color: #f8fafc;
-  border: 1px solid #e2e8f0;
-}
 
-.app.light .welcome-features p {
-  color: #111827;
-}
-
-.app.light .welcome-features li {
-  color: #4b5563;
-  border-bottom-color: #e5e7eb;
-}
-
-.app.light .welcome-features li:hover {
-  background-color: #f1f5f9;
-}
 
 .app.light .chat-container {
   background-color: #ffffff;

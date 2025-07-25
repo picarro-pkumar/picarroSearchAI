@@ -439,7 +439,10 @@ function App() {
         role: 'assistant',
         timestamp: new Date(),
         sources: data.sources,
-        isTyping: false
+        isTyping: false,
+        response_time: data.response_time,
+        model_used: data.model_used,
+        confidence_score: data.confidence_score
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -521,7 +524,10 @@ function App() {
         role: 'assistant',
         timestamp: new Date(),
         sources: data.sources,
-        isTyping: false
+        isTyping: false,
+        response_time: data.response_time,
+        model_used: data.model_used,
+        confidence_score: data.confidence_score
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -630,27 +636,6 @@ function App() {
                 </div>
                 <div className="fenceline-note">
                   <p><strong>Note:</strong> Currently optimized for Fenceline Cloud Solution documentation</p>
-                </div>
-                <div className="example-queries">
-                  <p>Try asking about:</p>
-                  <ul>
-                    <li>"What is Fenceline Cloud Solution and how does it work?"</li>
-                    <li>"Explain the Fenceline architecture and components"</li>
-                    <li>"How does Fenceline monitoring and alerting function?"</li>
-                    <li>"What are the installation requirements for Fenceline?"</li>
-                    <li>"How do I configure Fenceline for my site?"</li>
-                    <li>"What are the main features and benefits of Fenceline?"</li>
-                  </ul>
-                </div>
-                <div className="welcome-features">
-                  <p><strong>I can help you with:</strong></p>
-                  <ul>
-                    <li>📊 Technical specifications and documentation</li>
-                    <li>🔧 Installation and configuration guides</li>
-                    <li>⚙️ Troubleshooting and maintenance</li>
-                    <li>📈 Best practices and optimization</li>
-                    <li>🔍 Detailed API and system information</li>
-                  </ul>
                 </div>
               </div>
             ) : (

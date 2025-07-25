@@ -167,9 +167,30 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onRegenerate, isDark
             )}
           </div>
           <div className="flex items-center justify-between mt-2">
-            <span className={`text-xs ${isDarkMode ? 'text-chatgpt-gray-400' : 'text-gray-500'}`}>
-              {formatTimestamp(message.timestamp)}
-            </span>
+            <div className="flex items-center space-x-4">
+              <span className={`text-xs ${isDarkMode ? 'text-chatgpt-gray-400' : 'text-gray-500'}`}>
+                {formatTimestamp(message.timestamp)}
+              </span>
+              {/* LLM Response Time and Model Info */}
+              {message.response_time && (
+                <div className={`text-xs ${isDarkMode ? 'text-chatgpt-gray-400' : 'text-gray-500'}`}>
+                  <span className="font-medium">LLM:</span> {message.response_time.toFixed(1)}s 
+                  {message.model_used && (
+                    <span className="ml-1">({message.model_used})</span>
+                  )}
+                  <span className="ml-2 text-xs opacity-75">
+                    {message.response_time > 10 ? 'Processing large context' : 
+                     message.response_time > 5 ? 'Analyzing sources' : 'Quick response'}
+                  </span>
+                </div>
+              )}
+              {/* Confidence Score */}
+              {message.confidence_score && (
+                <div className={`text-xs ${isDarkMode ? 'text-chatgpt-gray-400' : 'text-gray-500'}`}>
+                  <span className="font-medium">Confidence:</span> {(message.confidence_score * 100).toFixed(0)}%
+                </div>
+              )}
+            </div>
             <div className="flex items-center space-x-2">
               <button
                 onClick={copyToClipboard}

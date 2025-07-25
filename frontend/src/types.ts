@@ -5,6 +5,9 @@ export interface Message {
   timestamp: Date;
   sources?: Source[];
   isTyping?: boolean;
+  response_time?: number;
+  model_used?: string;
+  confidence_score?: number;
 }
 
 export interface Source {
