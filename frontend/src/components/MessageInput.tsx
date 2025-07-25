@@ -112,6 +112,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
           <div className={`mt-2 text-xs text-center ${isDarkMode ? 'text-chatgpt-gray-400' : 'text-gray-500'}`}>
             Picarro SearchAI can make mistakes. Consider checking important information.
           </div>
+          <div className="mt-1 text-xs text-center text-blue-400">
+            Note: Responses are based on available documentation and may not include all edge cases or latest updates
+          </div>
         </form>
       </div>
     </div>

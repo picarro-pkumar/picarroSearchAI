@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Optional
 import logging
 import uvicorn
 from datetime import datetime
+import os
 
 from ai_responder import AIResponder, Source
 from doc_processor import DocumentProcessor
@@ -33,7 +34,7 @@ app = FastAPI(
 # Add CORS middleware for React frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # React frontend
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # React frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -41,7 +42,7 @@ app.add_middleware(
 
 # Pydantic models
 class SearchQuery(BaseModel):
-    query: str = Field(..., description="Search query", min_length=1, max_length=1000)
+    query: str = Field(..., description="Search query", min_length=1, max_length=5000)
     max_results: Optional[int] = Field(5, description="Maximum number of results to return", ge=1, le=20)
     filter_metadata: Optional[Dict[str, Any]] = Field(None, description="Optional metadata filters")
 
@@ -83,6 +84,12 @@ class ErrorResponse(BaseModel):
     message: str
     timestamp: datetime
 
+class LlmStatusResponse(BaseModel):
+    connected: bool
+    model: Optional[str] = None
+    error: Optional[str] = None
+    timestamp: datetime
+
 # Global instances
 document_processor = None
 ai_responder = None
@@ -96,7 +103,8 @@ def initialize_services():
         document_processor = DocumentProcessor()
         
         logger.info("Initializing AIResponder...")
-        ai_responder = AIResponder(document_processor)
+        ollama_url = os.getenv("OLLAMA_URL")
+        ai_responder = AIResponder(document_processor, ollama_url=ollama_url)
         
         logger.info("All services initialized successfully")
         return True
@@ -199,6 +207,41 @@ async def health_check():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Health check failed: {str(e)}"
+        )
+
+@app.get("/api/llm-status", response_model=LlmStatusResponse)
+async def get_llm_status():
+    """Get LLM (Ollama) connection status."""
+    try:
+        if not ai_responder:
+            return LlmStatusResponse(
+                connected=False,
+                error="AIResponder not initialized",
+                timestamp=datetime.now()
+            )
+        
+        # Check Ollama connection
+        is_connected = ai_responder._check_ollama_connection()
+        
+        if is_connected:
+            return LlmStatusResponse(
+                connected=True,
+                model=ai_responder.model_name,
+                timestamp=datetime.now()
+            )
+        else:
+            return LlmStatusResponse(
+                connected=False,
+                error="Ollama connection failed",
+                timestamp=datetime.now()
+            )
+            
+    except Exception as e:
+        logger.error(f"LLM status check failed: {e}")
+        return LlmStatusResponse(
+            connected=False,
+            error=str(e),
+            timestamp=datetime.now()
         )
 
 @app.post("/search", response_model=SearchResponse)
@@ -579,27 +622,74 @@ async def cleanup_old_chats():
             detail=f"Failed to cleanup chats: {str(e)}"
         )
 
+@app.post("/api/force-resync")
+async def force_resync():
+    """
+    Force a complete resync of Confluence data.
+    This will clear all existing data and perform a fresh sync.
+    
+    Returns:
+        Resync status and results
+    """
+    try:
+        logger.info("🔄 Starting force resync via API")
+        
+        # Import here to avoid circular imports
+        from force_resync import main as force_resync_main
+        
+        # Run the force resync
+        success = force_resync_main()
+        
+        if success:
+            return {
+                "success": True,
+                "message": "Force resync completed successfully",
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Force resync failed"
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Force resync failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Force resync failed: {str(e)}"
+        )
+
 # Error handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
     """Handle HTTP exceptions with structured error responses."""
-    return {
-        "error": "HTTP Error",
-        "message": exc.detail,
-        "status_code": exc.status_code,
-        "timestamp": datetime.now().isoformat()
-    }
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": "HTTP Error",
+            "message": exc.detail,
+            "status_code": exc.status_code,
+            "timestamp": datetime.now().isoformat()
+        }
+    )
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):
     """Handle general exceptions with structured error responses."""
     logger.error(f"Unhandled exception: {exc}")
-    return {
-        "error": "Internal Server Error",
-        "message": "An unexpected error occurred",
-        "status_code": 500,
-        "timestamp": datetime.now().isoformat()
-    }
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal Server Error",
+            "message": "An unexpected error occurred",
+            "status_code": 500,
+            "timestamp": datetime.now().isoformat()
+        }
+    )
 
 def start_server():
     """Start the FastAPI server with uvicorn."""
