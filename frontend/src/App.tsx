@@ -306,11 +306,23 @@ function App() {
 
   const clearAllChats = async () => {
     try {
+      console.log('🧹 Starting to clear all chats...');
+      
       // Delete all chats from backend
       await Promise.all(chats.map(chat => apiService.deleteChat(chat.id)));
+      
+      // Clear local state
       setChats([]);
-      createNewChat();
-      console.log('🧹 All chats cleared');
+      setCurrentChatId(null);
+      setMessages([]);
+      setError(null);
+      
+      console.log('✅ All chats cleared successfully');
+      
+      // Create a new chat after a small delay to prevent race conditions
+      setTimeout(() => {
+        createNewChat();
+      }, 100);
     } catch (error) {
       console.error('❌ Error clearing chats:', error);
       setError('Failed to clear chats');

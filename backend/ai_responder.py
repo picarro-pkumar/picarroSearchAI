@@ -47,10 +47,11 @@ class AIResponder:
         document_processor: DocumentProcessor,
         ollama_url: str = None,
         model_name: str = "llama3:latest",
-        max_retrieved_docs: int = 20,  # Retrieve more initially, then filter
-        max_tokens: int = 4096,
-        temperature: float = 0.2,
-        timeout: int = 30
+        max_retrieved_docs: int = 10,  # Reduced from 20 for higher quality
+        max_tokens: int = 8192,  # Increased for longer, more detailed responses
+        temperature: float = 0.3,  # Slightly increased for better explanations
+        timeout: int = 60,  # Increased timeout for longer responses
+        min_sources_required: int = 1  # Keep at 1 for small datasets
     ):
         """
         Initialize the AI Responder.
@@ -63,6 +64,7 @@ class AIResponder:
             max_tokens: Maximum tokens for response generation
             temperature: Temperature for response generation (0.0-1.0)
             timeout: Timeout for API requests in seconds
+            min_sources_required: Minimum number of sources required to answer
         """
         self.document_processor = document_processor
         # Use env var or default to host.docker.internal for Docker
@@ -72,9 +74,11 @@ class AIResponder:
         self.max_tokens = max_tokens
         self.temperature = temperature
         self.timeout = timeout
+        self.min_sources_required = min_sources_required
         
         logger.info(f"AIResponder initialized with model: {model_name}")
         logger.info(f"Ollama URL: {self.ollama_url}")
+        logger.info(f"Anti-hallucination settings: max_docs={max_retrieved_docs}, min_sources={min_sources_required}")
     
     def _check_ollama_connection(self) -> bool:
         """
@@ -303,10 +307,159 @@ class AIResponder:
         for i, source in enumerate(sources, 1):
             context_parts.append(f"Source {i} (Score: {source.similarity_score:.3f}):\n{source.content}\n")
         context = "\n".join(context_parts)
+        
+        # Anti-hallucination base instructions
+        anti_hallucination_instructions = """
+CRITICAL ANTI-HALLUCINATION RULES:
+1. **ONLY USE PROVIDED SOURCES**: Base your answer EXCLUSIVELY on the information in the provided sources
+2. **NO ASSUMPTIONS**: Do not make assumptions or inferences beyond what's explicitly stated in the sources
+3. **SOURCE VERIFICATION**: If you cannot verify a fact from the provided sources, do not include it
+4. **UNCERTAINTY ACKNOWLEDGMENT**: If the sources don't contain enough information, say "I don't have enough information from the available sources"
+5. **QUOTE WHEN POSSIBLE**: Use direct quotes from sources when making specific claims
+6. **AVOID GENERIC RESPONSES**: Do not provide generic or template responses - be specific to the source content
+"""
+        
+        # Enhanced ChatGPT-like instructions
+        comprehensive_instructions = """
+RESPONSE QUALITY REQUIREMENTS - CREATE CHATGPT-LIKE EXPLANATIONS:
+
+1. **COMPREHENSIVE EXPLANATIONS**: 
+   - Provide detailed, thorough explanations that anyone can understand
+   - Explain concepts as if teaching someone new to the topic
+   - Include context, background, and practical applications
+   - Use analogies and examples to clarify complex concepts
+
+2. **EDUCATIONAL APPROACH**:
+   - Start with a clear overview of the topic
+   - Break down complex information into digestible sections
+   - Explain the "why" behind technical decisions
+   - Provide step-by-step guidance when applicable
+   - Include best practices and recommendations
+
+3. **STRUCTURED FORMAT**:
+   - Use clear headings and organized sections
+   - Include bullet points and numbered lists for clarity
+   - Progress from basic concepts to advanced details
+   - Provide practical examples and real-world applications
+   - End with a summary and next steps
+
+4. **FRIENDLY AND HELPFUL TONE**:
+   - Use conversational, approachable language
+   - Anticipate follow-up questions and address them proactively
+   - Provide context about why this information is important
+   - Offer additional resources or related topics when relevant
+
+5. **DETAILED TECHNICAL INFORMATION**:
+   - Include all relevant technical details from sources
+   - Explain parameters, configurations, and settings in detail
+   - Provide code examples and implementation guidance
+   - Include troubleshooting tips and common issues
+   - Explain error handling and best practices
+"""
+        
         if self._is_api_query(query):
-            prompt = f"""You are a technical API documentation assistant for Picarro's FenceLine Cloud Solution.\n\nCONTEXT INFORMATION:\n{context}\n\nUSER QUESTION: {query}\n\nCRITICAL INSTRUCTIONS FOR API DOCUMENTATION RESPONSES:\n\n1. **API-SPECIFIC ANALYSIS**:\n   - When asked about API endpoints, provide EXACT details from the sources\n   - Include HTTP method, endpoint path, request/response formats\n   - List all parameters, their types, and whether they're required/optional\n   - Include example request/response bodies when available\n   - Mention status codes and error responses\n\n2. **STRUCTURED RESPONSE FORMAT**:\n   - Start with a direct answer to the specific API question\n   - Use clear headings: 'Endpoint', 'Method', 'Parameters', 'Request Body', 'Response', 'Examples'\n   - Include exact field names, data types, and validation rules\n   - Quote specific text from sources when describing API behavior\n\n3. **TECHNICAL ACCURACY**:\n   - DO NOT make assumptions about API behavior not documented in sources\n   - Include exact parameter names, types, and constraints\n   - Mention specific validation rules, error codes, and response formats\n   - If source contains JSON examples, include them in your response\n\n4. **QUALITY REQUIREMENTS**:\n   - Be precise and technical - this is API documentation\n   - Include all relevant details from the sources\n   - Use proper technical terminology\n   - Structure information logically for developers\n\n5. **If the API information is not in the sources**, say:\n   'I don't have specific information about that API endpoint in the available documentation. Please check the latest API documentation or contact the development team.'\n\nAnswer:"""
+            prompt = f"""You are a comprehensive technical API documentation assistant for Picarro's FenceLine Cloud Solution.
+
+{anti_hallucination_instructions}
+
+{comprehensive_instructions}
+
+CONTEXT INFORMATION:
+{context}
+
+USER QUESTION: {query}
+
+CRITICAL INSTRUCTIONS FOR API DOCUMENTATION RESPONSES:
+
+1. **COMPREHENSIVE API ANALYSIS**:
+   - Provide detailed explanations of API endpoints, methods, and functionality
+   - Include complete parameter descriptions with types, requirements, and examples
+   - Explain the purpose and use cases for each API endpoint
+   - Describe request/response formats in detail
+   - Include authentication requirements and security considerations
+
+2. **EDUCATIONAL APPROACH**:
+   - Explain API concepts in simple terms for developers of all levels
+   - Provide context about when and why to use each endpoint
+   - Include practical examples and code snippets when available
+   - Explain error handling and common issues
+   - Describe integration patterns and best practices
+
+3. **STRUCTURED RESPONSE FORMAT**:
+   - Start with an overview of the API functionality
+   - Use clear sections: Overview, Endpoints, Parameters, Request/Response, Examples, Best Practices
+   - Include step-by-step implementation guides
+   - Provide troubleshooting tips and common pitfalls
+   - End with summary and next steps
+
+4. **DETAILED TECHNICAL INFORMATION**:
+   - Include exact field names, data types, and validation rules
+   - Explain business logic and data flow
+   - Describe error codes and their meanings
+   - Include performance considerations and limitations
+   - Provide integration examples and use cases
+
+5. **If the API information is not in the sources**, say:
+   'I don't have specific information about that API endpoint in the available documentation. Please check the latest API documentation or contact the development team.'
+
+Answer:"""
         else:
-            prompt = f"""You are an AI assistant for Picarro's FenceLine Cloud Solution and related documentation.\n\nIMPORTANT: You can answer questions related to:\n- Picarro's products, technology, services, and environmental monitoring applications\n- FenceLine architecture, system design, and cloud solutions\n- Documentation, templates, troubleshooting guides, and how-to articles\n- Any content present in the provided context\n\nIf the user asks about topics completely unrelated to Picarro or the provided context, politely decline and redirect them to relevant topics.\n\nContext Information:\n{context}\n\nUser Question: {query}\n\nCRITICAL INSTRUCTIONS FOR RESPONSE QUALITY:\n\n1. **ANALYZE SPECIFIC CONTENT**: \n   - DO NOT give generic responses. Analyze the ACTUAL content provided in the sources.\n   - Extract and describe SPECIFIC details from the source content.\n   - Quote or reference exact text from the sources when describing components.\n   - List actual component names, labels, and technical specifications mentioned.\n\n2. **FOR DIAGRAMS AND ARCHITECTURE**:\n   - If the context contains diagrams, architecture, or visual content:\n     * Describe the EXACT components, sections, and layers as they appear in the source\n     * Explain the specific relationships and connections as shown in the source\n     * Mention specific file names, URLs, or identifiers from the source\n     * Include technical details like IP addresses, port numbers, or configurations if mentioned\n     * Describe any labels, arrows, flow directions, or annotations exactly as they appear\n     * If the source mentions specific diagram elements (like 'Tenant - Site Hierarchy', 'Platform API Architecture'), describe them in detail\n     * Extract and explain any specific technical terms, component names, or architectural patterns mentioned\n   - AVOID generic statements like 'appears to be' or 'seems to show' - be specific about what's actually in the source\n   - If the source contains raw diagram data or metadata, interpret and explain the actual content rather than making assumptions\n\n3. **RESPONSE STRUCTURE**:\n   - Start with a direct answer to the user's question\n   - Provide specific details from the sources\n   - If describing architecture, break it down into clear sections\n   - Use bullet points or numbered lists for clarity\n   - Reference specific source information when possible\n   - For FenceLine architecture questions, focus on the actual diagram content and technical specifications mentioned\n\n4. **QUALITY REQUIREMENTS**:\n   - Be precise and technical when the source contains technical information\n   - Avoid vague or generic descriptions\n   - Focus on what's actually documented in the sources\n   - If the source contains specific technical details, include them in your response\n\n5. **If the question is NOT related to Picarro, FenceLine, or the provided context**, respond with:\n   'I'm sorry, but I can only answer questions related to Picarro's solutions and the documentation available. Your question appears to be outside my area of expertise. Please ask me about Picarro's products, FenceLine architecture, or related documentation.'\n\nAnswer:"""
+            prompt = f"""You are a comprehensive AI assistant for Picarro's FenceLine Cloud Solution and related documentation.
+
+{anti_hallucination_instructions}
+
+{comprehensive_instructions}
+
+IMPORTANT: You can answer questions related to:
+- Picarro's products, technology, services, and environmental monitoring applications
+- FenceLine architecture, system design, and cloud solutions
+- Documentation, templates, troubleshooting guides, and how-to articles
+- Any content present in the provided context
+
+If the user asks about topics completely unrelated to Picarro or the provided context, politely decline and redirect them to relevant topics.
+
+Context Information:
+{context}
+
+User Question: {query}
+
+CRITICAL INSTRUCTIONS FOR COMPREHENSIVE RESPONSES:
+
+1. **DETAILED EXPLANATIONS**:
+   - Provide thorough, educational explanations that anyone can understand
+   - Break down complex concepts into simple, digestible parts
+   - Use analogies and examples to clarify technical concepts
+   - Explain the "why" behind technical decisions and implementations
+
+2. **COMPREHENSIVE CONTENT ANALYSIS**:
+   - Analyze ALL relevant content from the provided sources
+   - Extract and explain specific details, features, and capabilities
+   - Connect related concepts and explain their relationships
+   - Provide context about the broader system architecture
+
+3. **PRACTICAL GUIDANCE**:
+   - Include step-by-step instructions when applicable
+   - Provide best practices and recommendations
+   - Explain common use cases and scenarios
+   - Include troubleshooting tips and considerations
+
+4. **EDUCATIONAL STRUCTURE**:
+   - Start with a clear overview of the topic
+   - Use organized sections with headings and bullet points
+   - Progress from basic concepts to advanced details
+   - Include practical examples and real-world applications
+   - End with a summary and next steps
+
+5. **FRIENDLY AND HELPFUL TONE**:
+   - Use conversational, approachable language
+   - Anticipate follow-up questions and address them proactively
+   - Provide context about why this information is important
+   - Offer additional resources or related topics when relevant
+
+6. **If the question is NOT related to Picarro, FenceLine, or the provided context**, respond with:
+   'I'm sorry, but I can only answer questions related to Picarro's solutions and the documentation available. Your question appears to be outside my area of expertise. Please ask me about Picarro's products, FenceLine architecture, or related documentation.'
+
+Answer:"""
         return prompt
     
     def _call_ollama_api(self, prompt: str) -> Tuple[str, float]:
@@ -371,6 +524,61 @@ class AIResponder:
             logger.error(error_msg)
             raise Exception(error_msg)
     
+    def _preprocess_query(self, query: str) -> str:
+        """
+        Preprocess query to improve search matching.
+        
+        Args:
+            query: Original user query
+            
+        Returns:
+            Preprocessed query
+        """
+        # Common typos and variations for better matching
+        typo_fixes = {
+            'managment': 'management',
+            'fenceline': 'fenceline',  # Keep as is
+            'fenceline': 'fenceline',  # Keep as is
+            'api': 'API',
+            'tenant': 'tenant',
+            'site': 'site',
+            'user': 'user',
+            'auth': 'authentication',
+            'config': 'configuration',
+            'setup': 'setup',
+            'install': 'installation',
+            'create': 'create',
+            'creation': 'creation'
+        }
+        
+        processed_query = query.lower()
+        
+        # Apply typo fixes
+        for typo, correction in typo_fixes.items():
+            processed_query = processed_query.replace(typo, correction)
+        
+        # Add common variations for better matching
+        variations = []
+        if 'management' in processed_query:
+            variations.extend(['tenant management', 'user management', 'site management'])
+        if 'api' in processed_query:
+            variations.extend(['API', 'endpoint', 'interface', 'contract'])
+        if 'tenant' in processed_query:
+            variations.extend(['tenant management', 'tenant API'])
+        if 'site' in processed_query:
+            variations.extend(['site management', 'site API', 'site creation', 'site setup'])
+        if 'create' in processed_query or 'creation' in processed_query:
+            variations.extend(['create', 'creation', 'setup', 'establish'])
+        if 'monitoring' in processed_query:
+            variations.extend(['monitoring system', 'monitoring API'])
+        
+        # Combine original query with variations
+        if variations:
+            processed_query = f"{processed_query} {' '.join(variations)}"
+        
+        logger.info(f"Query preprocessing: '{query}' -> '{processed_query}'")
+        return processed_query
+    
     def respond(self, query: str, filter_metadata: Optional[Dict[str, Any]] = None) -> AIResponse:
         """
         Generate an AI response using RAG pattern.
@@ -391,6 +599,9 @@ class AIResponder:
             if not self._check_ollama_connection():
                 raise Exception("Ollama is not accessible. Please ensure Ollama is running.")
             
+            # Preprocess query for better matching
+            processed_query = self._preprocess_query(query)
+            
             # Check ethical content first
             is_ethical, ethical_reason = self._check_ethical_content(query)
             if not is_ethical:
@@ -407,14 +618,14 @@ class AIResponder:
             # Retrieve relevant documents
             logger.info("Retrieving relevant documents...")
             search_results = self.document_processor.search_documents(
-                query=query,
+                query=processed_query, # Use processed query for retrieval
                 n_results=self.max_retrieved_docs,
                 filter_metadata=filter_metadata
             )
             
             # Convert search results to Source objects and filter by relevance
             sources = []
-            min_similarity_threshold = 0.4  # Higher threshold to filter out less relevant sources
+            min_similarity_threshold = 0.2  # Reduced from 0.6 for more flexible filtering
             
             for result in search_results:
                 similarity_score = result["similarity_score"]
@@ -433,7 +644,17 @@ class AIResponder:
             
             logger.info(f"Retrieved {len(sources)} relevant documents (filtered from {len(search_results)} total)")
             
-            logger.info(f"Retrieved {len(sources)} relevant documents")
+            # Anti-hallucination: Check if we have enough sources
+            if len(sources) < self.min_sources_required:
+                logger.warning(f"Insufficient sources ({len(sources)}) for reliable answer. Minimum required: {self.min_sources_required}")
+                return AIResponse(
+                    answer=f"I don't have enough relevant information from the available sources to provide a reliable answer. I found {len(sources)} relevant documents, but need at least {self.min_sources_required} for confidence. Please try rephrasing your question or ask about a different aspect of Picarro's technology.",
+                    sources=sources,
+                    query=query,
+                    model_used=self.model_name,
+                    response_time=time.time() - start_time,
+                    confidence_score=0.0
+                )
             
             # Check domain relevance
             is_relevant = self._check_domain_relevance(query, sources)
@@ -466,6 +687,23 @@ class AIResponder:
             if sources:
                 avg_similarity = sum(s.similarity_score for s in sources) / len(sources)
                 confidence_score = min(avg_similarity * 1.2, 1.0)  # Boost confidence slightly
+                
+                # Anti-hallucination: Log source usage for transparency
+                source_titles = [s.metadata.get('title', 'Unknown') for s in sources]
+                logger.info(f"Using sources: {source_titles}")
+                logger.info(f"Average similarity: {avg_similarity:.3f}, Confidence: {confidence_score:.3f}")
+                
+                # Anti-hallucination: Reject low confidence responses
+                if confidence_score < 0.3:  # Reduced from 0.7 for more flexible confidence
+                    logger.warning(f"Low confidence response ({confidence_score:.3f}) - rejecting to prevent hallucination")
+                    return AIResponse(
+                        answer=f"I'm not confident enough in the available information to provide a reliable answer. The sources have low relevance to your question. Please try rephrasing your question or ask about a different aspect of Picarro's technology.",
+                        sources=sources,
+                        query=query,
+                        model_used=self.model_name,
+                        response_time=time.time() - start_time,
+                        confidence_score=confidence_score
+                    )
             else:
                 confidence_score = 0.0
             
