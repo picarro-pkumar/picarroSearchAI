@@ -489,148 +489,63 @@ class AIResponder:
     def _generate_prompt(self, query: str, sources: List[Source]) -> str:
         context_parts = []
         for i, source in enumerate(sources, 1):
-            context_parts.append(f"Source {i} (Score: {source.similarity_score:.3f}):\n{source.content}\n")
+            context_parts.append(f"Source {i}:\n{source.content}\n")
         context = "\n".join(context_parts)
         
-        # Anti-hallucination base instructions
-        anti_hallucination_instructions = """
-You are a Picarro technical documentation system. You MUST ONLY provide information that exists in the provided context documents.
-If the context doesn't contain specific API endpoints, response formats, or technical details, you MUST say:
-    'This information is not available in the current documentation'
-rather than generating examples.
-NEVER create fake API endpoints or example responses.
-NEVER extrapolate beyond what is explicitly stated in the source material.
-If you are unsure, say you do not have the information.
-"""
-        
-        # Technical expert instructions
-        technical_instructions = """
-RESPONSE QUALITY REQUIREMENTS - SENIOR TECHNICAL EXPERT:
+        prompt = f"""You are a senior technical expert. Extract and organize ALL technical information from the sources into a comprehensive technical response.
 
-1. **DIRECT AND PRECISE ANSWERS**: 
-   - Give direct, technical responses like a senior engineer
-   - Focus on specific implementation details and technical specifications
-   - Avoid generic explanations of basic concepts unless specifically asked
-   - Be concise and practical, not educational
+TECHNICAL EXTRACTION GUIDELINES:
+- Extract ALL API endpoints, event names, and technical specifications
+- Include ALL parameter names, data types, and field definitions
+- Organize information with clear technical headings and sections
+- Present data structures, schemas, and technical details professionally
+- Include ALL procedural steps and implementation details
+- Use bullet points and structured formatting for technical specifications
+- Extract exact field names, types, and descriptions from JSON schemas
+- Present WebSocket events, namespaces, and connection details completely
 
-2. **TECHNICAL FOCUS**:
-   - Reference specific code examples, API endpoints, and data structures from documents
-   - Include exact field names, parameters, and configuration details
-   - Use bullet points and code snippets when relevant
-   - Focus on practical implementation details
+REQUIRED SECTIONS (if information exists in sources):
+## API Endpoints
+## WebSocket Configuration  
+## Event Specifications
+## Data Structures
+## Implementation Steps
+## Technical Parameters
 
-3. **STRUCTURED TECHNICAL FORMAT**:
-   - Use clear technical headings
-   - Include bullet points for lists of features/endpoints
-   - Provide code examples and configuration snippets
-   - Focus on specific technical details, not general explanations
-
-4. **PRECISE TECHNICAL LANGUAGE**:
-   - Use technical terminology appropriate for experienced developers
-   - Reference exact API endpoints, data structures, and configurations
-   - Avoid explaining basic concepts unless specifically requested
-   - Focus on "how to" rather than "what is"
-
-5. **IMPLEMENTATION-FOCUSED**:
-   - Provide specific technical details for implementation
-   - Include exact parameters, data types, and validation rules
-   - Reference specific error codes and their meanings
-   - Focus on practical technical solutions
-"""
-        
-        if self._is_api_query(query):
-            prompt = f"""You are a senior Picarro technical expert specializing in API documentation.
-
-{anti_hallucination_instructions}
-
-{technical_instructions}
-
-CONTEXT INFORMATION:
+SOURCES:
 {context}
 
 USER QUESTION: {query}
 
-CRITICAL INSTRUCTIONS FOR API RESPONSES:
+Extract and present ALL technical information from the sources in a comprehensive, well-organized technical format. Do not summarize - include all available technical details.
 
-1. **DIRECT API SPECIFICATIONS**:
-   - Provide exact endpoint URLs, HTTP methods, and parameters
-   - Include specific field names, data types, and validation rules
-   - Reference exact request/response formats from documentation
-   - Focus on implementation details, not general API concepts
-
-2. **TECHNICAL IMPLEMENTATION**:
-   - Include specific code examples and configuration snippets
-   - Reference exact error codes and their meanings
-   - Provide specific authentication requirements and headers
-   - Focus on practical integration details
-
-3. **PRECISE TECHNICAL FORMAT**:
-   - Use bullet points for endpoint lists and parameters
-   - Include code snippets for request/response examples
-   - Reference specific data structures and field mappings
-   - Focus on technical specifications, not educational explanations
-
-4. **IMPLEMENTATION-FOCUSED**:
-   - Provide specific technical details for immediate implementation
-   - Include exact parameters, headers, and response formats
-   - Reference specific business logic and data flow
-   - Focus on "how to implement" rather than "what is an API"
-
-5. **If the API information is not in the sources**, say:
-   'I don't have specific information about that API endpoint in the available documentation. Please check the latest API documentation or contact the development team.'
-
-Answer:"""
-        else:
-            prompt = f"""You are a senior Picarro technical expert. Give direct, precise answers based on the provided documentation.
-
-{anti_hallucination_instructions}
-
-{technical_instructions}
-
-IMPORTANT: You can answer questions related to:
-- Picarro's products, technology, services, and environmental monitoring applications
-- FenceLine architecture, system design, and cloud solutions
-- Documentation, templates, troubleshooting guides, and how-to articles
-- Any content present in the provided context
-
-If the user asks about topics completely unrelated to Picarro or the provided context, politely decline and redirect them to relevant topics.
-
-Context Information:
-{context}
-
-User Question: {query}
-
-CRITICAL INSTRUCTIONS FOR TECHNICAL RESPONSES:
-
-1. **DIRECT AND PRECISE ANSWERS**:
-   - Give direct, technical responses like a senior engineer
-   - Focus on specific implementation details and technical specifications
-   - Avoid generic explanations of basic concepts unless specifically asked
-   - Be concise and practical, not educational
-
-2. **TECHNICAL FOCUS**:
-   - Reference specific code examples, API endpoints, and data structures from documents
-   - Include exact field names, parameters, and configuration details
-   - Use bullet points and code snippets when relevant
-   - Focus on practical implementation details
-
-3. **IMPLEMENTATION-FOCUSED**:
-   - Provide specific technical details for immediate implementation
-   - Include exact parameters, configurations, and validation rules
-   - Reference specific error codes and their meanings
-   - Focus on "how to implement" rather than "what is"
-
-4. **PRECISE TECHNICAL FORMAT**:
-   - Use bullet points for lists of features/endpoints
-   - Include code examples and configuration snippets
-   - Reference specific data structures and field mappings
-   - Focus on technical specifications, not general explanations
-
-5. **If the question is NOT related to Picarro, FenceLine, or the provided context**, respond with:
-   'I'm sorry, but I can only answer questions related to Picarro's solutions and the documentation available. Your question appears to be outside my area of expertise. Please ask me about Picarro's products, FenceLine architecture, or related documentation.'
-
-Answer:"""
+TECHNICAL RESPONSE:"""
+        
         return prompt
+
+    def _validate_no_guessing(self, response: str) -> bool:
+        """
+        Validate that the response doesn't contain guessing phrases.
+        
+        Args:
+            response: The AI response to validate
+            
+        Returns:
+            True if response is clean, False if it contains guessing phrases
+        """
+        forbidden_phrases = [
+            "educated guess", "general knowledge", "typically you would", 
+            "usually", "generally", "normally", "standard practice",
+            "common approach", "typical implementation", "you would need to",
+            "based on experience", "in most cases", "generally speaking"
+        ]
+        
+        response_lower = response.lower()
+        for phrase in forbidden_phrases:
+            if phrase in response_lower:
+                logger.warning(f"Response contains guessing phrase: '{phrase}'")
+                return False
+        return True
     
     def _call_ollama_api(self, prompt: str) -> Tuple[str, float]:
         """
@@ -799,6 +714,218 @@ Answer:"""
         logger.info("No sources found with cascade thresholds, using top 3 results")
         return [Source(content=r["content"], metadata=r["metadata"], similarity_score=r["similarity_score"], rank=r["rank"]) for r in search_results[:3]]
 
+    def _analyze_content_type(self, sources: List[Source], query: str) -> Dict[str, Any]:
+        """
+        Automatically detect what type of content we have and how to handle it.
+        
+        Args:
+            sources: List of source documents
+            query: User query
+            
+        Returns:
+            Dictionary with content analysis results
+        """
+        # Analyze source content characteristics
+        all_content = " ".join([s.content for s in sources]).lower()
+        
+        analysis = {
+            'has_technical_specs': False,
+            'has_code_examples': False,
+            'has_api_info': False,
+            'has_procedures': False,
+            'content_depth': 'basic',
+            'technical_keywords': [],
+            'main_topics': []
+        }
+        
+        # Universal technical indicators
+        technical_patterns = {
+            'api_info': ['endpoint', 'api', 'http', 'get', 'post', 'json', 'request', 'response'],
+            'code_examples': ['function', 'def', 'class', 'import', 'const', 'var', '```', 'code'],
+            'procedures': ['step', 'procedure', 'process', 'workflow', 'install', 'setup', 'configure'],
+            'specifications': ['spec', 'requirement', 'parameter', 'field', 'property', 'attribute']
+        }
+        
+        # Detect content types
+        for category, keywords in technical_patterns.items():
+            matches = sum(1 for kw in keywords if kw in all_content)
+            if matches >= 2:  # Need at least 2 matching keywords
+                analysis[f'has_{category}'] = True
+                analysis['technical_keywords'].extend([kw for kw in keywords if kw in all_content])
+        
+        # Determine content depth
+        total_length = sum(len(s.content) for s in sources)
+        if total_length > 2000:
+            analysis['content_depth'] = 'detailed'
+        elif total_length > 500:
+            analysis['content_depth'] = 'moderate'
+        else:
+            analysis['content_depth'] = 'basic'
+        
+        # Extract main topics (most frequent meaningful words)
+        words = all_content.split()
+        word_freq = {}
+        for word in words:
+            if len(word) > 4 and word.isalpha():  # Meaningful words only
+                word_freq[word] = word_freq.get(word, 0) + 1
+        
+        # Get top topics
+        analysis['main_topics'] = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)[:5]
+        
+        logger.info(f"Content analysis: {analysis}")
+        return analysis
+
+    def _get_adaptive_response_strategy(self, content_analysis: Dict[str, Any], query: str) -> str:
+        """
+        Determine how to respond based on content analysis.
+        
+        Args:
+            content_analysis: Results from content analysis
+            query: User query
+            
+        Returns:
+            Response strategy string
+        """
+        query_lower = query.lower()
+        
+        # Match query intent with available content
+        if any(word in query_lower for word in ['how', 'what', 'explain', 'describe']):
+            if content_analysis['content_depth'] == 'detailed':
+                return "comprehensive_explanation"
+            elif content_analysis['has_procedures']:
+                return "step_by_step_guide"
+            else:
+                return "basic_explanation"
+        
+        elif any(word in query_lower for word in ['api', 'endpoint', 'integration']):
+            if content_analysis['has_api_info']:
+                return "technical_api_response"
+            else:
+                return "api_guidance_response"
+        
+        elif any(word in query_lower for word in ['example', 'sample', 'demo']):
+            if content_analysis['has_code_examples']:
+                return "example_based_response"
+            else:
+                return "conceptual_example_response"
+        
+        else:
+            return "general_informative_response"
+
+    def _generate_adaptive_prompt(self, query: str, sources: List[Source]) -> str:
+        """
+        Generate adaptive prompt based on content analysis and response strategy.
+        
+        Args:
+            query: User query
+            sources: List of source documents
+            
+        Returns:
+            Generated prompt string
+        """
+        # Analyze what we have
+        content_analysis = self._analyze_content_type(sources, query)
+        response_strategy = self._get_adaptive_response_strategy(content_analysis, query)
+        
+        # Build context
+        context_parts = []
+        for i, source in enumerate(sources, 1):
+            context_parts.append(f"Source {i}:\n{source.content}\n")
+        context = "\n".join(context_parts)
+        
+        # Universal base instructions
+        base_instructions = """You are an expert technical assistant. Analyze the provided sources and give the most helpful response possible based on what's actually available."""
+        
+        # Strategy-specific instructions
+        strategy_instructions = {
+            "comprehensive_explanation": "Provide a detailed, well-structured explanation using all available information from the sources.",
+            
+            "technical_api_response": "Focus on the technical specifications, endpoints, and implementation details found in the sources.",
+            
+            "api_guidance_response": "Explain what you can determine about the API from the sources, and provide clear guidance on getting complete technical details.",
+            
+            "step_by_step_guide": "Organize the information into clear, actionable steps based on the procedures described in the sources.",
+            
+            "example_based_response": "Use the examples and code snippets from the sources to illustrate the concepts.",
+            
+            "conceptual_example_response": "Explain the concepts clearly based on the sources, and suggest where to find implementation examples.",
+            
+            "basic_explanation": "Provide a clear, concise explanation based on the available information.",
+            
+            "general_informative_response": "Give a helpful, informative response that makes the best use of the available source material."
+        }
+        
+        instruction = strategy_instructions.get(response_strategy, strategy_instructions["general_informative_response"])
+        
+        # Content-aware guidelines
+        guidelines = []
+        if content_analysis['has_technical_specs']:
+            guidelines.append("Include specific technical details and specifications mentioned in the sources.")
+        if content_analysis['has_procedures']:
+            guidelines.append("Reference the procedures and processes described in the sources.")
+        if content_analysis['content_depth'] == 'basic':
+            guidelines.append("Since the available information is limited, be clear about what is and isn't covered.")
+        
+        guidelines_text = "\n".join([f"• {g}" for g in guidelines])
+        
+        prompt = f"""{base_instructions}
+
+RESPONSE STRATEGY: {instruction}
+
+CONTENT GUIDELINES:
+{guidelines_text}
+
+SOURCES:
+{context}
+
+USER QUESTION: {query}
+
+Provide the most helpful response possible based on the available sources. Always be honest about the limitations of the available information while maximizing its usefulness.
+
+RESPONSE:"""
+        
+        logger.info(f"Generated adaptive prompt with strategy: {response_strategy}")
+        return prompt
+
+    def _calculate_adaptive_confidence(self, sources: List[Source], query: str, content_analysis: Dict[str, Any]) -> float:
+        """
+        Calculate confidence based on content quality and query match.
+        
+        Args:
+            sources: List of source documents
+            query: User query
+            content_analysis: Results from content analysis
+            
+        Returns:
+            Confidence score between 0.0 and 1.0
+        """
+        if not sources:
+            return 0.0
+        
+        # Base similarity confidence
+        base_confidence = sum(s.similarity_score for s in sources) / len(sources)
+        
+        # Content quality multipliers
+        quality_multiplier = 1.0
+        
+        if content_analysis['content_depth'] == 'detailed':
+            quality_multiplier += 0.2
+        elif content_analysis['content_depth'] == 'moderate':
+            quality_multiplier += 0.1
+        
+        # Query-content match bonus
+        query_words = set(query.lower().split())
+        content_words = set(" ".join([s.content.lower() for s in sources]).split())
+        word_overlap = len(query_words.intersection(content_words)) / len(query_words) if query_words else 0
+        
+        match_bonus = word_overlap * 0.3
+        
+        # Final confidence
+        final_confidence = min(1.0, (base_confidence * quality_multiplier) + match_bonus)
+        
+        logger.info(f"Adaptive confidence: base={base_confidence:.3f}, quality_mult={quality_multiplier:.3f}, match_bonus={match_bonus:.3f}, final={final_confidence:.3f}")
+        return final_confidence
+
     def respond(self, query: str, filter_metadata: Optional[Dict[str, Any]] = None) -> AIResponse:
         """
         Generate an AI response using RAG pattern.
@@ -878,38 +1005,42 @@ Answer:"""
             # Deduplicate sources by document ID
             sources = self._deduplicate_sources_by_document_id(sources)
             
-            # Generate prompt with retrieved sources
-            prompt = self._generate_prompt(query, sources)
+            # UNIVERSAL ADAPTIVE SYSTEM - Use strict anti-guessing prompt
+            content_analysis = self._analyze_content_type(sources, query)
+            prompt = self._generate_prompt(query, sources)  # Use strict prompt, not adaptive
             
             # Generate AI response
-            logger.info("Generating AI response...")
+            logger.info("Generating AI response with adaptive system...")
             answer, api_response_time = self._call_ollama_api(prompt)
+            
+            # VALIDATE NO GUESSING - Check for educated guesses and replace if found
+            if not self._validate_no_guessing(answer):
+                logger.warning("Response contained guessing - using strict fallback")
+                source_content = " ".join([s.content[:200] for s in sources])
+                answer = f"Based on the available documentation: {source_content} The sources don't provide complete implementation details for this specific question."
             
             total_response_time = time.time() - start_time
             
-            # Calculate confidence score based on source similarity scores
-            if sources:
-                avg_similarity = sum(s.similarity_score for s in sources) / len(sources)
-                confidence_score = min(avg_similarity * 1.2, 1.0)  # Boost confidence slightly
-                
-                # Anti-hallucination: Log source usage for transparency
-                source_titles = [s.metadata.get('title', 'Unknown') for s in sources]
-                logger.info(f"Using sources: {source_titles}")
-                logger.info(f"Average similarity: {avg_similarity:.3f}, Confidence: {confidence_score:.3f}")
-                
-                # Anti-hallucination: Reject low confidence responses
-                if confidence_score < 0.05:  # Very permissive threshold for maximum inclusivity
-                    logger.warning(f"Low confidence response ({confidence_score:.3f}) - rejecting to prevent hallucination")
-                    return AIResponse(
-                        answer=f"I'm not confident enough in the available information to provide a reliable answer. The sources have low relevance to your question. Please try rephrasing your question or ask about a different aspect of Picarro's technology.",
-                        sources=sources,
-                        query=query,
-                        model_used=self.model_name,
-                        response_time=time.time() - start_time,
-                        confidence_score=confidence_score
-                    )
-            else:
-                confidence_score = 0.0
+            # Calculate adaptive confidence score
+            confidence_score = self._calculate_adaptive_confidence(sources, query, content_analysis)
+            
+            # Log source usage for transparency
+            source_titles = [s.metadata.get('title', 'Unknown') for s in sources]
+            logger.info(f"Using sources: {source_titles}")
+            logger.info(f"Content analysis: {content_analysis}")
+            logger.info(f"Adaptive confidence: {confidence_score:.3f}")
+            
+            # Anti-hallucination: Reject very low confidence responses
+            if confidence_score < 0.05:  # Very permissive threshold for maximum inclusivity
+                logger.warning(f"Low confidence response ({confidence_score:.3f}) - rejecting to prevent hallucination")
+                return AIResponse(
+                    answer=f"I'm not confident enough in the available information to provide a reliable answer. The sources have low relevance to your question. Please try rephrasing your question or ask about a different aspect of Picarro's technology.",
+                    sources=sources,
+                    query=query,
+                    model_used=self.model_name,
+                    response_time=time.time() - start_time,
+                    confidence_score=confidence_score
+                )
             
             response = AIResponse(
                 answer=answer,
