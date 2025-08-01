@@ -1,0 +1,50 @@
+services:
+  backend:
+    build: ./backend
+    container_name: picarro-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - ENVIRONMENT=production
+      - OLLAMA_MODEL=llama3.2:3b
+    volumes:
+      - ./backend/chroma_db:/app/chroma_db
+      - ./backend/chat_history:/app/chat_history
+      - ./backend/feedback_data:/app/feedback_data
+      - ./backend/.env:/app/.env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - picarro-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build: ./frontend
+    container_name: picarro-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - picarro-network
+
+networks:
+  picarro-network:
+    driver: bridge 

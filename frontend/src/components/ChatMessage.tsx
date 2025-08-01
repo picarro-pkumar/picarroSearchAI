@@ -25,6 +25,48 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onRegenerate, isDark
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const formatMessageContent = (content: string) => {
+    // Split content by code blocks (```code```)
+    const parts = content.split(/(```[\s\S]*?```)/);
+    
+    return parts.map((part, index) => {
+      if (part.startsWith('```') && part.endsWith('```')) {
+        // This is a code block
+        const codeContent = part.slice(3, -3); // Remove ``` markers
+        const lines = codeContent.split('\n');
+        const language = lines[0].trim() || 'text'; // First line might be language identifier
+        const actualCode = lines.slice(1).join('\n'); // Rest is the actual code
+        
+        return (
+          <div key={index} className={`my-4 rounded-lg overflow-hidden ${isDarkMode ? 'bg-chatgpt-gray-900' : 'bg-gray-100'}`}>
+            {/* Language header */}
+            <div className={`px-4 py-2 text-xs font-medium ${isDarkMode ? 'bg-chatgpt-gray-800 text-chatgpt-gray-300' : 'bg-gray-200 text-gray-700'}`}>
+              {language}
+            </div>
+            {/* Code content */}
+            <pre className={`p-4 overflow-x-auto text-sm leading-relaxed ${isDarkMode ? 'text-chatgpt-gray-100' : 'text-gray-800'}`}>
+              <code>{actualCode}</code>
+            </pre>
+          </div>
+        );
+      } else if (part.trim()) {
+        // This is regular text - also handle inline code blocks
+        const formattedText = part.replace(/`([^`]+)`/g, (match, code) => (
+          `<code class="inline-code">${code}</code>`
+        ));
+        
+        return (
+          <p 
+            key={index} 
+            className={`leading-relaxed whitespace-pre-wrap ${isDarkMode ? 'text-chatgpt-gray-100' : 'text-gray-800'}`}
+            dangerouslySetInnerHTML={{ __html: formattedText }}
+          />
+        );
+      }
+      return null;
+    });
+  };
+
   const renderSources = () => {
     if (!message.sources || message.sources.length === 0) return null;
 
@@ -109,28 +151,22 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onRegenerate, isDark
     return (
       <div className="flex justify-center py-6">
         <div className="flex items-start space-x-4 max-w-3xl w-full px-4">
+          <div className="flex-1 min-w-0">
+            <div className={`rounded-lg p-4 ml-auto max-w-2xl ${isDarkMode ? 'bg-blue-600' : 'bg-blue-500'}`}>
+              <p className="leading-relaxed whitespace-pre-wrap text-white">
+                {message.content}
+              </p>
+            </div>
+            <div className="flex items-center justify-end mt-2">
+              <span className={`text-xs ${isDarkMode ? 'text-chatgpt-gray-400' : 'text-gray-500'}`}>
+                {formatTimestamp(message.timestamp)}
+              </span>
+            </div>
+          </div>
           <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isDarkMode ? 'bg-chatgpt-gray-600' : 'bg-gray-500'}`}>
             <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
             </svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className={`rounded-lg p-4 ${isDarkMode ? 'bg-chatgpt-gray-700' : 'bg-gray-100'}`}>
-              <p className={`leading-relaxed whitespace-pre-wrap ${isDarkMode ? 'text-chatgpt-gray-100' : 'text-gray-800'}`}>
-                {message.content}
-              </p>
-            </div>
-            <div className="flex items-center justify-between mt-2">
-              <span className={`text-xs ${isDarkMode ? 'text-chatgpt-gray-400' : 'text-gray-500'}`}>
-                {formatTimestamp(message.timestamp)}
-              </span>
-              <button
-                onClick={copyToClipboard}
-                className={`text-xs opacity-0 group-hover:opacity-100 transition-opacity ${isDarkMode ? 'text-chatgpt-gray-400 hover:text-chatgpt-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -138,7 +174,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onRegenerate, isDark
   }
 
   return (
-    <div className={`flex justify-center py-6 ${isDarkMode ? 'bg-chatgpt-gray-800' : 'bg-gray-50'}`}>
+    <div className={`flex justify-center py-6 group ${isDarkMode ? 'bg-chatgpt-gray-800' : 'bg-gray-50'}`}>
       <div className="flex items-start space-x-4 max-w-3xl w-full px-4">
         <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center flex-shrink-0">
           <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -146,7 +182,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onRegenerate, isDark
           </svg>
         </div>
         <div className="flex-1 min-w-0">
-          <div className="bg-transparent">
+          <div className="bg-transparent relative">
             {message.isTyping ? (
               <div className="flex items-center space-x-2">
                 <div className="typing-dots">
@@ -158,11 +194,30 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onRegenerate, isDark
             ) : (
               <>
                 <div className="prose prose-invert max-w-none">
-                  <p className={`leading-relaxed whitespace-pre-wrap ${isDarkMode ? 'text-chatgpt-gray-100' : 'text-gray-800'}`}>
-                    {message.content}
-                  </p>
+                  {formatMessageContent(message.content)}
                 </div>
                 {renderSources()}
+                {/* Copy button positioned at top-right of response */}
+                <button
+                  onClick={copyToClipboard}
+                  className={`absolute top-2 right-2 p-2 rounded-lg transition-all duration-200 ${
+                    isDarkMode 
+                      ? 'bg-chatgpt-gray-700 hover:bg-chatgpt-gray-600 text-chatgpt-gray-300 hover:text-white' 
+                      : 'bg-gray-200 hover:bg-gray-300 text-gray-600 hover:text-gray-800'
+                  } ${copied ? 'bg-green-600 text-white' : ''}`}
+                  title={copied ? 'Copied!' : 'Copy response'}
+                >
+                  {copied ? (
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                      <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                    </svg>
+                  )}
+                </button>
               </>
             )}
           </div>
@@ -192,12 +247,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onRegenerate, isDark
               )}
             </div>
             <div className="flex items-center space-x-2">
-              <button
-                onClick={copyToClipboard}
-                className={`text-xs opacity-0 group-hover:opacity-100 transition-opacity ${isDarkMode ? 'text-chatgpt-gray-400 hover:text-chatgpt-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
               {onRegenerate && (
                 <button
                   onClick={onRegenerate}

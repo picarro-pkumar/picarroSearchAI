@@ -60,6 +60,10 @@ class ConfluenceConnector:
         self.html_converter = html2text.HTML2Text()
         self.html_converter.ignore_links = False
         self.html_converter.ignore_images = False
+        self.html_converter.body_width = 0  # Don't wrap text
+        self.html_converter.unicode_snob = True  # Use Unicode characters
+        self.html_converter.escape_snob = True  # Escape special characters
+        self.html_converter.single_line_break = True  # Single line breaks
         
         # Track sync state
         self.sync_state_file = 'confluence_sync_state.json'
@@ -179,7 +183,7 @@ class ConfluenceConnector:
             return None
     
     def clean_html_content(self, html_content: str) -> str:
-        """Clean and convert HTML content to plain text"""
+        """Clean and convert HTML content to plain text with enhanced Confluence support"""
         if not html_content:
             return ""
         
@@ -190,14 +194,147 @@ class ConfluenceConnector:
         for script in soup(["script", "style"]):
             script.decompose()
         
+        # Enhanced handling for Confluence-specific elements
+        
+        # 1. Handle Confluence macro content (like code blocks, info panels)
+        for macro in soup.find_all(['ac:structured-macro', 'ac:plain-text-body']):
+            content = macro.get_text().strip()
+            if content:
+                # Convert to markdown code block
+                macro.replace_with(BeautifulSoup(f"\n```\n{content}\n```\n", 'html.parser'))
+        
+        # 2. Handle Confluence code blocks
+        for code_block in soup.find_all(['pre', 'code', 'ac:code']):
+            content = code_block.get_text().strip()
+            if content:
+                if code_block.name == 'pre' or 'ac:code' in str(code_block):
+                    # Convert to markdown code block
+                    code_block.replace_with(BeautifulSoup(f"\n```\n{content}\n```\n", 'html.parser'))
+                else:
+                    # Convert inline code to markdown
+                    code_block.replace_with(BeautifulSoup(f"`{content}`", 'html.parser'))
+        
+        # 3. Handle Confluence tables with enhanced API endpoint detection
+        for table in soup.find_all('table'):
+            try:
+                # Check if this table contains API endpoint information
+                table_text = table.get_text().lower()
+                if any(keyword in table_text for keyword in ['method', 'path', 'endpoint', 'post', 'get', 'patch', 'delete', 'v1/']):
+                    # Convert API table to structured markdown
+                    markdown_table = self._convert_api_table_to_markdown(table)
+                    table.replace_with(BeautifulSoup(markdown_table, 'html.parser'))
+                else:
+                    # Convert regular table to markdown
+                    markdown_table = self._convert_table_to_markdown(table)
+                    table.replace_with(BeautifulSoup(markdown_table, 'html.parser'))
+            except Exception as e:
+                logger.warning(f"Failed to convert table to markdown: {e}")
+        
+        # 4. Handle Confluence lists and structured content
+        for list_elem in soup.find_all(['ul', 'ol']):
+            # Ensure proper spacing for lists
+            list_elem.insert_before(BeautifulSoup('\n', 'html.parser'))
+            list_elem.insert_after(BeautifulSoup('\n', 'html.parser'))
+        
+        # 5. Handle Confluence headings and sections
+        for heading in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
+            # Ensure proper spacing around headings
+            heading.insert_before(BeautifulSoup('\n', 'html.parser'))
+            heading.insert_after(BeautifulSoup('\n', 'html.parser'))
+        
+        # 6. Preserve structured content like API endpoints in paragraphs
+        for element in soup.find_all(['p', 'div', 'span', 'ac:structured-macro']):
+            text = element.get_text().strip()
+            if text:
+                # Look for API endpoint patterns
+                if any(pattern in text.lower() for pattern in [
+                    'method:', 'path:', 'endpoint:', 'post', 'get', 'patch', 'delete',
+                    'v1/tenant', 'v1/site', 'v1/monitoring', 'api/v1'
+                ]):
+                    # Ensure API endpoint details are preserved with proper formatting
+                    element.string = text
+                    element.insert_before(BeautifulSoup('\n', 'html.parser'))
+                    element.insert_after(BeautifulSoup('\n', 'html.parser'))
+        
         # Convert to markdown
         markdown = self.html_converter.handle(str(soup))
         
-        # Clean up extra whitespace
-        markdown = re.sub(r'\n\s*\n', '\n\n', markdown)
+        # Clean up extra whitespace but preserve structure
+        markdown = re.sub(r'\n\s*\n\s*\n', '\n\n', markdown)
         markdown = re.sub(r' +', ' ', markdown)
         
+        # Ensure proper spacing around code blocks
+        markdown = re.sub(r'```\s*\n', '```\n', markdown)
+        markdown = re.sub(r'\n\s*```', '\n```', markdown)
+        
+        # Preserve API endpoint patterns
+        markdown = re.sub(r'(Method:\s*)([A-Z]+)', r'\1**\2**', markdown)
+        markdown = re.sub(r'(PATH:\s*)([^\n]+)', r'\1**\2**', markdown)
+        markdown = re.sub(r'(Endpoint:\s*)([^\n]+)', r'\1**\2**', markdown)
+        
         return markdown.strip()
+    
+    def _convert_table_to_markdown(self, table) -> str:
+        """Convert HTML table to markdown format"""
+        markdown_lines = []
+        
+        # Find all rows
+        rows = table.find_all('tr')
+        if not rows:
+            return ""
+        
+        for i, row in enumerate(rows):
+            cells = row.find_all(['td', 'th'])
+            if not cells:
+                continue
+            
+            # Convert cells to markdown
+            cell_texts = [cell.get_text().strip() for cell in cells]
+            markdown_line = '| ' + ' | '.join(cell_texts) + ' |'
+            markdown_lines.append(markdown_line)
+            
+            # Add separator line after header row
+            if i == 0:
+                separator = '| ' + ' | '.join(['---'] * len(cells)) + ' |'
+                markdown_lines.append(separator)
+        
+        return '\n'.join(markdown_lines)
+    
+    def _convert_api_table_to_markdown(self, table) -> str:
+        """Convert API endpoint table to structured markdown format"""
+        markdown_lines = []
+        
+        # Find all rows
+        rows = table.find_all('tr')
+        if not rows:
+            return ""
+        
+        for i, row in enumerate(rows):
+            cells = row.find_all(['td', 'th'])
+            if not cells:
+                continue
+            
+            # Convert cells to markdown with enhanced formatting for API endpoints
+            cell_texts = []
+            for cell in cells:
+                text = cell.get_text().strip()
+                # Bold HTTP methods
+                if text.upper() in ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']:
+                    text = f"**{text}**"
+                # Bold API paths
+                elif text.startswith('v1/') or text.startswith('/api/'):
+                    text = f"**{text}**"
+                cell_texts.append(text)
+            
+            markdown_line = '| ' + ' | '.join(cell_texts) + ' |'
+            markdown_lines.append(markdown_line)
+            
+            # Add separator line after header row
+            if i == 0:
+                separator = '| ' + ' | '.join(['---'] * len(cells)) + ' |'
+                markdown_lines.append(separator)
+        
+        return '\n'.join(markdown_lines)
     
     def extract_metadata(self, page_data: Dict) -> Dict[str, Any]:
         """Extract metadata from page data"""

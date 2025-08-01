@@ -5,7 +5,7 @@ import Sidebar from './components/Sidebar';
 import { Message, Chat, SearchResponse } from './types';
 import './App.css';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = '';
 
 // API service functions
 const apiService = {
@@ -421,10 +421,20 @@ function App() {
       const processingInterval = startProcessingAnimation();
 
     try {
+      // Prepare conversation history (last 6 messages for context)
+      const conversationHistory = messages.slice(-6).map(msg => ({
+        role: msg.role,
+        content: msg.content,
+        timestamp: msg.timestamp.toISOString()
+      }));
+
       const response = await fetch(`${API_BASE_URL}/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: content.trim() })
+        body: JSON.stringify({ 
+          query: content.trim(),
+          conversation_history: conversationHistory
+        })
       });
 
       if (!response.ok) {
@@ -506,10 +516,20 @@ function App() {
     const processingInterval = startProcessingAnimation();
 
     try {
+      // Prepare conversation history for regeneration (excluding the last assistant message)
+      const conversationHistory = messagesWithoutLastAssistant.slice(-6).map(msg => ({
+        role: msg.role,
+        content: msg.content,
+        timestamp: msg.timestamp.toISOString()
+      }));
+
       const response = await fetch(`${API_BASE_URL}/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: lastUserMessage.content })
+        body: JSON.stringify({ 
+          query: lastUserMessage.content,
+          conversation_history: conversationHistory
+        })
       });
 
       if (!response.ok) {
@@ -634,6 +654,88 @@ function App() {
                 <div className="welcome-subtitle">
                   <p>Your intelligent assistant for Picarro's precision gas analyzers and environmental monitoring solutions</p>
                 </div>
+                
+                {/* AI Learning Disclaimer */}
+                <div className="ai-learning-banner">
+                  <div className="learning-icon">🧠</div>
+                  <div className="learning-text">
+                    <span className="learning-pulse">✨</span>
+                    <strong>I am learning everyday!!</strong>
+                    <span className="learning-pulse">✨</span>
+                  </div>
+                  <div className="learning-subtitle">
+                    Sometimes I might hallucinate or create examples not in the docs. Always verify critical details!
+                  </div>
+                </div>
+                
+                {/* Try Out Section */}
+                <div className="try-out-section">
+                  <h3>🚀 Try these examples to get started:</h3>
+                  <div className="prompt-categories">
+                    
+                    <div className="prompt-category">
+                      <h4>📡 API Endpoints</h4>
+                      <div className="prompt-buttons">
+                        <button className="prompt-btn" onClick={() => sendMessage("how can we delete Tenant using API")}>
+                          Delete Tenant API
+                        </button>
+                        <button className="prompt-btn" onClick={() => sendMessage("telemetry API endpoint")}>
+                          Telemetry API
+                        </button>
+                        <button className="prompt-btn" onClick={() => sendMessage("websocket connection API")}>
+                          WebSocket API
+                        </button>
+                        <button className="prompt-btn" onClick={() => sendMessage("program API endpoint")}>
+                          Program API
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="prompt-category">
+                      <h4>📊 Active Monitoring</h4>
+                      <div className="prompt-buttons">
+                        <button className="prompt-btn" onClick={() => sendMessage("gas concentration measurements")}>
+                          Gas Concentration
+                        </button>
+                        <button className="prompt-btn" onClick={() => sendMessage("wind data monitoring")}>
+                          Wind Data
+                        </button>
+                        <button className="prompt-btn" onClick={() => sendMessage("heartbeat monitoring")}>
+                          Heartbeat System
+                        </button>
+                        <button className="prompt-btn" onClick={() => sendMessage("alert threshold configuration")}>
+                          Alert Thresholds
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="prompt-category">
+                      <h4>🔧 System Details</h4>
+                      <div className="prompt-buttons">
+                        <button className="prompt-btn" onClick={() => sendMessage("field of view FOV")}>
+                          FOV System
+                        </button>
+                        <button className="prompt-btn" onClick={() => sendMessage("socket.io namespace events")}>
+                          Socket Events
+                        </button>
+                        <button className="prompt-btn" onClick={() => sendMessage("unit conversion ugm3 ppb")}>
+                          Unit Conversion
+                        </button>
+                        <button className="prompt-btn" onClick={() => sendMessage("error handling and status codes")}>
+                          Error Handling
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="conversation-tip">
+                    <div className="tip-icon">💡</div>
+                    <div className="tip-text">
+                      <strong>Pro Tip:</strong> Ask follow-up questions like "Explain this API in details" or "What are the response formats?" for deeper insights!
+                    </div>
+                  </div>
+                </div>
+                
                 <div className="fenceline-note">
                   <p><strong>Note:</strong> Currently optimized for Fenceline Cloud Solution documentation</p>
                 </div>

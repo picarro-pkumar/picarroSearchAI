@@ -2,6 +2,7 @@ fastapi==0.104.1
 uvicorn==0.24.0
 sentence-transformers>=2.5.0
 chromadb==0.4.15
+numpy<2.0.0             # ADD THIS LINE OR CHANGE AN EXISTING NUMPY LINE
 python-multipart==0.0.6
 requests==2.31.0
 python-dotenv==1.0.0
@@ -14,4 +15,4 @@ torch>=2.0.0
 beautifulsoup4>=4.12.0
 html2text>=2020.1.16
 schedule>=1.2.0
-urllib3>=2.0.0 
+urllib3>=2.0.0

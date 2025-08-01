@@ -7,7 +7,7 @@ import uvicorn
 from datetime import datetime
 import os
 
-from ai_responder import AIResponder, Source
+from simple_ai_responder import SimpleAIResponder as AIResponder, Source
 from doc_processor import DocumentProcessor
 from chat_manager import chat_manager
 from models.chat_models import (
@@ -45,6 +45,7 @@ class SearchQuery(BaseModel):
     query: str = Field(..., description="Search query", min_length=1, max_length=5000)
     max_results: Optional[int] = Field(5, description="Maximum number of results to return", ge=1, le=20)
     filter_metadata: Optional[Dict[str, Any]] = Field(None, description="Optional metadata filters")
+    conversation_history: Optional[List[Dict[str, Any]]] = Field(None, description="Previous messages for context")
 
 class SourceResponse(BaseModel):
     content: str
@@ -104,7 +105,8 @@ def initialize_services():
         
         logger.info("Initializing AIResponder...")
         ollama_url = os.getenv("OLLAMA_URL")
-        ai_responder = AIResponder(document_processor, ollama_url=ollama_url)
+        model_name = os.getenv("OLLAMA_MODEL", "llama3:latest")
+        ai_responder = AIResponder(document_processor, ollama_url=ollama_url, model_name=model_name)
         
         logger.info("All services initialized successfully")
         return True
@@ -262,17 +264,28 @@ async def search_documents(search_query: SearchQuery):
                 detail="AI Responder is not initialized"
             )
         
-        logger.info(f"Processing search query: '{search_query.query}'")
+        # Log incoming search request
+        logger.info("=" * 80)
+        logger.info("🔍 SEARCH REQUEST RECEIVED")
+        logger.info("=" * 80)
+        logger.info(f"📝 Query: '{search_query.query}'")
+        logger.info(f"📊 Max Results: {search_query.max_results}")
+        logger.info(f"🔧 Filter Metadata: {search_query.filter_metadata}")
+        logger.info("-" * 80)
         
         # Generate AI response
+        logger.info("🤖 Generating AI response...")
         response = ai_responder.respond(
             query=search_query.query,
-            filter_metadata=search_query.filter_metadata
+            filter_metadata=search_query.filter_metadata,
+            conversation_history=search_query.conversation_history
         )
         
         # Convert sources to response format
         source_responses = []
-        for source in response.sources:
+        logger.info(f"📚 Found {len(response.sources)} relevant sources:")
+        
+        for i, source in enumerate(response.sources, 1):
             source_response = SourceResponse(
                 content=source.content,
                 metadata=source.metadata,
@@ -280,6 +293,19 @@ async def search_documents(search_query: SearchQuery):
                 rank=source.rank
             )
             source_responses.append(source_response)
+            
+            # Log each source details
+            logger.info(f"  {i}. Source {source.rank}:")
+            logger.info(f"     📄 Title: {source.metadata.get('title', 'Unknown')}")
+            logger.info(f"     👤 Author: {source.metadata.get('author', 'Unknown')}")
+            logger.info(f"     🎯 Similarity Score: {source.similarity_score:.4f}")
+            logger.info(f"     📏 Content Length: {len(source.content)} chars")
+            logger.info(f"     📍 Document ID: {source.metadata.get('document_id', 'Unknown')}")
+            
+            # Log first 150 characters of content
+            content_preview = source.content[:150].replace('\n', ' ').strip()
+            logger.info(f"     📝 Content Preview: {content_preview}...")
+            logger.info("")
         
         # Create search response
         search_response = SearchResponse(
@@ -292,13 +318,29 @@ async def search_documents(search_query: SearchQuery):
             timestamp=datetime.now()
         )
         
-        logger.info(f"Search completed successfully in {response.response_time:.2f}s")
+        # Log final response summary
+        logger.info("=" * 80)
+        logger.info("✅ SEARCH RESPONSE SUMMARY")
+        logger.info("=" * 80)
+        logger.info(f"🤖 AI Answer: {response.answer}")
+        logger.info(f"⏱️  Response Time: {response.response_time:.2f}s")
+        logger.info(f"🎯 Confidence Score: {response.confidence_score}")
+        logger.info(f"🧠 Model Used: {response.model_used}")
+        logger.info(f"📚 Total Sources: {len(source_responses)}")
+        logger.info(f"📝 Query Processed: '{response.query}'")
+        logger.info("=" * 80)
+        
         return search_response
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Search failed: {e}")
+        logger.error("=" * 80)
+        logger.error("❌ SEARCH FAILED")
+        logger.error("=" * 80)
+        logger.error(f"🚨 Error: {e}")
+        logger.error(f"📝 Query: '{search_query.query}'")
+        logger.error("=" * 80)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Search failed: {str(e)}"

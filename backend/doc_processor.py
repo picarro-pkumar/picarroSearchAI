@@ -10,9 +10,9 @@ from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
 import numpy as np
 
-# Configure logging3
+# Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG, # Changed to DEBUG for more verbose output
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ class DocumentProcessor:
     
     def __init__(
         self,
-        model_name: str = "all-MiniLM-L6-v2",
+        model_name: str = "all-mpnet-base-v2",
         chroma_persist_directory: str = "./chroma_db",
         chunk_size: int = 1000,
         chunk_overlap: int = 200
@@ -62,11 +62,18 @@ class DocumentProcessor:
                 settings=Settings(anonymized_telemetry=False)
             )
             
-            # Create or get collection
-            self.collection = self.client.get_or_create_collection(
-                name="documents",
-                metadata={"hnsw:space": "cosine"}
-            )
+            # Create or get collection with consistent name
+            collection_name = "documents"
+            
+            try:
+                self.collection = self.client.get_collection(name=collection_name)
+                logger.info(f"Using existing collection: {collection_name}")
+            except:
+                self.collection = self.client.create_collection(
+                    name=collection_name,
+                    metadata={"hnsw:space": "cosine"}
+                )
+                logger.info(f"Created new collection: {collection_name}")
             logger.info("ChromaDB initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize ChromaDB: {e}")
@@ -108,6 +115,7 @@ class DocumentProcessor:
             if start >= len(text):
                 break
         
+        logger.debug(f"Chunked text into {len(chunks)} chunks.") # Added debug log
         return chunks
     
     def _generate_embeddings(self, texts: List[str]) -> List[List[float]]:
@@ -122,6 +130,7 @@ class DocumentProcessor:
         """
         try:
             embeddings = self.model.encode(texts, convert_to_tensor=False)
+            logger.debug(f"Generated {len(embeddings)} embeddings.") # Added debug log
             return embeddings.tolist()
         except Exception as e:
             logger.error(f"Failed to generate embeddings: {e}")
@@ -229,6 +238,7 @@ class DocumentProcessor:
             query_embedding = self._generate_embeddings([query])[0]
             
             # Perform search
+            logger.debug(f"Performing ChromaDB query with n_results={n_results} and filter={filter_metadata}") # Added debug log
             results = self.collection.query(
                 query_embeddings=[query_embedding],
                 n_results=n_results,
@@ -254,6 +264,7 @@ class DocumentProcessor:
                     })
             
             logger.info(f"Search completed for query: '{query}' - found {len(formatted_results)} results")
+            logger.debug(f"ChromaDB raw results: {results}") # Log raw ChromaDB results for deeper inspection
             return formatted_results
             
         except Exception as e:
@@ -380,6 +391,7 @@ class DocumentProcessor:
                 documents.append(doc)
             
             logger.info(f"Retrieved {len(documents)} documents from collection")
+            logger.debug(f"All documents retrieved from ChromaDB: {documents[:3]}...") # Added debug log
             return documents
             
         except Exception as e:
@@ -542,4 +554,4 @@ def test_document_processor():
 
 
 if __name__ == "__main__":
-    test_document_processor() 
+    test_document_processor()
